@@ -1,0 +1,88 @@
+<header class="site-header">
+
+  <nav class="navbar">
+
+    <a
+      routerLink="/"
+      class="logo"
+      (click)="closeMenu()"
+    >
+      <img
+        src="/tiny-tara-logo.svg"
+        alt="Tiny Tara"
+        class="logo-image"
+      >
+    </a>
+
+
+    <button
+      class="menu-toggle"
+      type="button"
+      (click)="toggleMenu()"
+      aria-label="Toggle navigation"
+    >
+      {{ mobileMenuOpen ? '✕' : '☰' }}
+    </button>
+
+
+    <ul
+      class="nav-links"
+      [class.show]="mobileMenuOpen"
+    >
+
+      <li>
+        <a
+          routerLink="/"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          (click)="closeMenu()"
+        >
+          Home
+        </a>
+      </li>
+
+      <li>
+        <a
+          routerLink="/kids-gallery-activity"
+          routerLinkActive="active"
+          (click)="closeMenu()"
+        >
+          Kids Activities
+        </a>
+      </li>
+
+      <li>
+        <a
+          routerLink="/parents"
+          routerLinkActive="active"
+          (click)="closeMenu()"
+        >
+          For Parents
+        </a>
+      </li>
+
+      <li>
+        <a
+          routerLink="/about"
+          routerLinkActive="active"
+          (click)="closeMenu()"
+        >
+          About Tiny Tara
+        </a>
+      </li>
+
+      <li>
+        <a
+          routerLink="/contact"
+          routerLinkActive="active"
+          (click)="closeMenu()"
+        >
+          Contact Us
+        </a>
+      </li>
+
+    </ul>
+
+  </nav>
+
+</header>

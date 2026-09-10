@@ -1,0 +1,42 @@
+<section class="page-banner">
+  <div class="banner-content">
+    <div class="banner-icon">🌈</div>
+    <h1>Kids Activities Gallery</h1>
+    <p>Little hands, big imaginations, and joyful learning every day.</p>
+  </div>
+</section>
+
+<section class="gallery-section">
+  <div class="section-heading">
+    <span>OUR CREATIVE MOMENTS</span>
+    <h2>Fun activities that make children glow with joy</h2>
+  </div>
+
+  <div class="activity-grid">
+    <article class="activity-card" *ngFor="let item of activities">
+      <div class="activity-emoji" [ngClass]="item.accent">{{ item.emoji }}</div>
+      <h3>{{ item.title }}</h3>
+      <p>{{ item.description }}</p>
+    </article>
+  </div>
+</section>
+
+<section class="moments-section">
+  <div class="moment-box">
+    <div class="moment-icon">✨</div>
+    <h3>Curiosity</h3>
+    <p>Children ask questions, explore ideas and discover the world with wonder.</p>
+  </div>
+
+  <div class="moment-box">
+    <div class="moment-icon">💫</div>
+    <h3>Confidence</h3>
+    <p>Each activity helps little learners feel brave, capable and proud of their effort.</p>
+  </div>
+
+  <div class="moment-box">
+    <div class="moment-icon">🌟</div>
+    <h3>Joy</h3>
+    <p>Playful experiences keep learning happy, meaningful and full of laughter.</p>
+  </div>
+</section>

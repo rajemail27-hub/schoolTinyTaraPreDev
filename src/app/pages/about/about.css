@@ -1,0 +1,616 @@
+/* =========================
+   PAGE BANNER
+========================= */
+
+.page-banner {
+  padding: 100px 20px;
+  text-align: center;
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f66f92,
+      #6c63ff
+    );
+}
+
+.banner-icon {
+  font-size: 60px;
+  margin-bottom: 10px;
+}
+
+.page-banner h1 {
+  margin: 0;
+  font-family: "Baloo 2", cursive;
+  font-size: 55px;
+}
+
+.page-banner p {
+  margin-top: 10px;
+  font-size: 19px;
+}
+
+
+/* =========================
+   ABOUT STORY
+========================= */
+
+.about-section {
+  padding: 100px 8%;
+
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  align-items: center;
+
+  gap: 80px;
+}
+
+.about-content > span,
+.why-content > span {
+  color: #f66f92;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.about-content h2,
+.why-content h2 {
+  margin: 15px 0;
+
+  font-family: "Baloo 2", cursive;
+
+  font-size: 48px;
+
+  line-height: 1.2;
+}
+
+.about-content h2 span,
+.why-content h2 span {
+  color: #6c63ff;
+}
+
+.about-content p,
+.why-content p {
+  margin-bottom: 16px;
+
+  color: #666;
+
+  line-height: 1.8;
+}
+
+
+/* =========================
+   ABOUT VISUAL
+========================= */
+
+.about-visual {
+  position: relative;
+
+  min-height: 430px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fff1bd,
+      #ffe4ed
+    );
+}
+
+.big-star {
+  font-size: 160px;
+}
+
+.small-star {
+  position: absolute;
+
+  font-size: 45px;
+}
+
+.star-one {
+  top: 35px;
+  left: 25%;
+}
+
+.star-two {
+  top: 25%;
+  right: 40px;
+}
+
+.star-three {
+  bottom: 35px;
+  left: 15%;
+}
+
+.star-four {
+  bottom: 30px;
+  right: 20%;
+}
+
+
+/* =========================
+   SECTION HEADING
+========================= */
+
+.section-heading {
+  max-width: 750px;
+
+  margin:
+    0 auto 60px;
+
+  text-align: center;
+}
+
+.section-heading > span {
+  color: #f66f92;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.section-heading h2 {
+  margin: 15px 0;
+
+  font-family: "Baloo 2", cursive;
+
+  font-size: 45px;
+}
+
+.section-heading h2 span {
+  color: #6c63ff;
+}
+
+.section-heading p {
+  color: #666;
+
+  line-height: 1.7;
+}
+
+
+/* =========================
+   VALUES
+========================= */
+
+.values-section {
+  padding: 90px 8%;
+
+  background: #fff3f6;
+}
+
+.values-grid {
+  max-width: 1200px;
+
+  margin: auto;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  gap: 25px;
+}
+
+.value-card {
+  padding: 35px 25px;
+
+  background: white;
+
+  border-radius: 25px;
+
+  text-align: center;
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.05);
+
+  transition: 0.3s;
+}
+
+.value-card:hover {
+  transform: translateY(-8px);
+}
+
+.value-icon {
+  font-size: 50px;
+
+  margin-bottom: 15px;
+}
+
+.value-card h3 {
+  margin-bottom: 12px;
+
+  font-family: "Baloo 2", cursive;
+
+  font-size: 24px;
+}
+
+.value-card p {
+  color: #666;
+
+  line-height: 1.7;
+}
+
+
+/* =========================
+   MISSION & VISION
+========================= */
+
+.mission-section {
+  max-width: 1200px;
+
+  margin: auto;
+
+  padding: 100px 8%;
+
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 30px;
+}
+
+.mission-card {
+  padding: 55px 40px;
+
+  border-radius: 35px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fff1bd,
+      #fff8df
+    );
+
+  text-align: center;
+}
+
+.vision-card {
+  background:
+    linear-gradient(
+      135deg,
+      #e5e1ff,
+      #f2f0ff
+    );
+}
+
+.mission-icon {
+  font-size: 65px;
+
+  margin-bottom: 15px;
+}
+
+.mission-card h2 {
+  margin-bottom: 15px;
+
+  font-family: "Baloo 2", cursive;
+
+  font-size: 32px;
+}
+
+.mission-card p {
+  color: #555;
+
+  line-height: 1.8;
+}
+
+
+/* =========================
+   LEARNING
+========================= */
+
+.learning-section {
+  padding: 90px 8%;
+
+  background: #eef8ff;
+}
+
+.learning-grid {
+  max-width: 1200px;
+
+  margin: auto;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  gap: 25px;
+}
+
+.learning-card {
+  position: relative;
+
+  padding: 40px 25px;
+
+  border-radius: 25px;
+
+  background: white;
+
+  text-align: center;
+
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.05);
+
+  transition: 0.3s;
+}
+
+.learning-card:hover {
+  transform: translateY(-8px);
+}
+
+.learning-number {
+  position: absolute;
+
+  top: 15px;
+  left: 20px;
+
+  color: #f66f92;
+
+  font-size: 14px;
+
+  font-weight: 800;
+}
+
+.learning-icon {
+  margin-bottom: 15px;
+
+  font-size: 50px;
+}
+
+.learning-card h3 {
+  margin-bottom: 10px;
+
+  font-family: "Baloo 2", cursive;
+
+  font-size: 25px;
+}
+
+.learning-card p {
+  color: #666;
+
+  line-height: 1.7;
+}
+
+
+/* =========================
+   WHY SECTION
+========================= */
+
+.why-section {
+  padding: 100px 8%;
+
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  align-items: center;
+
+  gap: 80px;
+}
+
+.why-visual {
+  min-height: 420px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 40px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #e5e1ff,
+      #ffe4ed
+    );
+}
+
+.why-card {
+  padding: 55px 40px;
+
+  border-radius: 35px;
+
+  background: white;
+
+  text-align: center;
+
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.1);
+
+  transform: rotate(2deg);
+}
+
+.why-emoji {
+  margin-bottom: 15px;
+
+  font-size: 80px;
+}
+
+.why-card h3 {
+  color: #f66f92;
+
+  font-family: "Baloo 2", cursive;
+
+  font-size: 30px;
+}
+
+.why-card p {
+  color: #777;
+}
+
+.why-content ul {
+  padding: 0;
+
+  margin-top: 25px;
+
+  list-style: none;
+}
+
+.why-content li {
+  margin-bottom: 15px;
+
+  font-weight: 700;
+}
+
+.why-content li span {
+  display: inline-flex;
+
+  width: 25px;
+  height: 25px;
+
+  margin-right: 10px;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #f66f92;
+
+  color: white;
+}
+
+
+/* =========================
+   CTA
+========================= */
+
+.about-cta {
+  padding: 90px 20px;
+
+  text-align: center;
+
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f66f92,
+      #6c63ff
+    );
+}
+
+.about-cta h2 {
+  margin-bottom: 15px;
+
+  font-family: "Baloo 2", cursive;
+
+  font-size: 45px;
+}
+
+.about-cta p {
+  margin-bottom: 30px;
+
+  font-size: 18px;
+}
+
+.cta-button {
+  display: inline-block;
+
+  padding: 15px 30px;
+
+  border-radius: 30px;
+
+  background: white;
+
+  color: #f66f92;
+
+  font-weight: 800;
+
+  text-decoration: none;
+
+  transition: 0.3s;
+}
+
+.cta-button:hover {
+  transform: translateY(-3px);
+}
+
+
+/* =========================
+   TABLET
+========================= */
+
+@media (max-width: 900px) {
+
+  .about-section,
+  .why-section {
+    grid-template-columns: 1fr;
+  }
+
+  .values-grid,
+  .learning-grid {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+}
+
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 700px) {
+
+  .page-banner {
+    padding: 70px 20px;
+  }
+
+  .page-banner h1 {
+    font-size: 40px;
+  }
+
+  .about-section,
+  .why-section,
+  .mission-section {
+    padding: 70px 20px;
+  }
+
+  .values-section,
+  .learning-section {
+    padding: 70px 20px;
+  }
+
+  .values-grid,
+  .learning-grid,
+  .mission-section {
+    grid-template-columns: 1fr;
+  }
+
+  .about-content h2,
+  .why-content h2,
+  .section-heading h2,
+  .about-cta h2 {
+    font-size: 35px;
+  }
+
+  .about-visual {
+    min-height: 320px;
+  }
+
+  .big-star {
+    font-size: 120px;
+  }
+
+  .small-star {
+    font-size: 35px;
+  }
+
+}

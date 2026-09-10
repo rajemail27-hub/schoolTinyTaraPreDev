@@ -1,0 +1,38 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #f66f92;
+  --secondary: #6c63ff;
+  --yellow: #ffc857;
+  --blue: #70c1ff;
+  --dark: #2f2f45;
+  --light: #fffaf5;
+  --white: #ffffff;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Nunito", sans-serif;
+  color: var(--dark);
+  background: var(--light);
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Baloo 2", cursive;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}/* You can add global styles to this file, and also import other style files */
