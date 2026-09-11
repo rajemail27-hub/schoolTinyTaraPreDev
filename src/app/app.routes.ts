@@ -2,6 +2,13 @@ import { Routes } from '@angular/router';
 
 export const routes: Routes = [
   {
+    path: 'dashboard',
+    title: 'Admin Dashboard | Tiny Tara Preschool',
+    loadComponent: () =>
+      import('./pages/dashboard/dashboard')
+        .then(m => m.Dashboard)
+  },
+  {
     path: '',
     title: 'Tiny Tara Preschool | Learn, Play & Shine',
     loadComponent: () =>

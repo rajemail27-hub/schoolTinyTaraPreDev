@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { Navbar } from './components/navbar/navbar';
 import { Footer } from './components/footer/footer';
 
@@ -15,4 +15,9 @@ import { Footer } from './components/footer/footer';
   styleUrl: './app.css'
 })
 export class App {
+  constructor(private readonly router: Router) {}
+
+  isDashboard(): boolean {
+    return this.router.url.startsWith('/dashboard');
+  }
 }

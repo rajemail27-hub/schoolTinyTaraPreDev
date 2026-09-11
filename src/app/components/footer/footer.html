@@ -20,7 +20,7 @@
     </div>
 
 
-    <div>
+    <div class="footer-contact">
 
       <h3>Quick Links</h3>
 
@@ -55,11 +55,16 @@
 
       <h3>Contact</h3>
 
-      <p>📍 Your Preschool Address</p>
+      <p class="contact-line"><span class="contact-icon">📍</span><span>{{ siteContent.value().address }}</span></p>
 
-      <p>📞 +91 XXXXX XXXXX</p>
+      <p class="contact-line"><span class="contact-icon">📞</span><a [href]="'tel:' + siteContent.value().phone">{{ siteContent.value().phone }}</a></p>
 
-      <p>✉️ care@tinytarapreschool.com</p>
+      <p class="contact-line"><span class="contact-icon">✉️</span><a [href]="'mailto:' + siteContent.value().email">{{ siteContent.value().email }}</a></p>
+
+      <p class="school-hours">
+        <span>🕒 {{ siteContent.value().school_days }}</span>
+        <span>{{ siteContent.value().school_hours }}</span>
+      </p>
 
     </div>
 

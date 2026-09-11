@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+
+import { SiteContentService } from '../../services/site-content.service';
 
 @Component({
   selector: 'app-contact',
@@ -8,7 +10,8 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
   templateUrl: './contact.html',
   styleUrl: './contact.css'
 })
-export class Contact {
+export class Contact implements OnInit {
+  readonly siteContent = inject(SiteContentService);
   submitted = false;
   enquiryForm!: FormGroup;
 
@@ -21,6 +24,10 @@ export class Contact {
       childAge: ['', Validators.required],
       message: ['']
     });
+  }
+
+  ngOnInit(): void {
+    void this.siteContent.load();
   }
 
   submitForm(): void {

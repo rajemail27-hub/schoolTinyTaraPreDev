@@ -27,28 +27,28 @@
       <div class="contact-icon">📍</div>
       <h3>Visit Us</h3>
       <p>Tiny Tara Preschool</p>
-      <p class="contact-detail">Your Preschool Address<br>Patna, Bihar, India</p>
+      <p class="contact-detail">{{ siteContent.value().address }}</p>
     </div>
 
     <div class="contact-info-card">
       <div class="contact-icon">📞</div>
       <h3>Call Us</h3>
       <p>Speak with our team</p>
-      <p class="contact-detail">+91 XXXXX XXXXX</p>
+      <p class="contact-detail"><a [href]="'tel:' + siteContent.value().phone">{{ siteContent.value().phone }}</a></p>
     </div>
 
     <div class="contact-info-card">
       <div class="contact-icon">✉️</div>
       <h3>Email Us</h3>
       <p>Send us your questions</p>
-      <p class="contact-detail">hello@tinytarapreschool.com</p>
+      <p class="contact-detail"><a [href]="'mailto:' + siteContent.value().email">{{ siteContent.value().email }}</a></p>
     </div>
 
     <div class="contact-info-card">
       <div class="contact-icon">🕒</div>
       <h3>School Hours</h3>
-      <p>Monday – Friday</p>
-      <p class="contact-detail">9:00 AM – 2:00 PM</p>
+      <p>{{ siteContent.value().school_days }}</p>
+      <p class="contact-detail">{{ siteContent.value().school_hours }}</p>
     </div>
   </div>
 </section>
@@ -198,6 +198,6 @@
     <span class="cta-icon">🏫</span>
     <h2>Come And Visit Tiny Tara</h2>
     <p>See our learning environment and meet our friendly team.</p>
-    <a href="tel:+91" class="cta-button">Call To Arrange A Visit</a>
+    <a [href]="'tel:' + siteContent.value().phone" class="cta-button">Call To Arrange A Visit</a>
   </div>
 </section>

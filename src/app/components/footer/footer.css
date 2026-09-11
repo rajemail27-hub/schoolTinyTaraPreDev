@@ -13,7 +13,7 @@ footer {
   padding: 60px 8%;
 
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: 2fr 0.9fr 1.15fr;
 
   gap: 40px;
 }
@@ -64,6 +64,42 @@ footer a {
   color: #2f2f45;
   text-decoration: none;
   transition: color 0.2s ease;
+}
+
+.footer-contact {
+  min-width: 0;
+}
+
+.footer-contact p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.contact-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.contact-line > .contact-icon {
+  flex: 0 0 auto;
+  line-height: 1.6;
+}
+
+.contact-line > span:last-child,
+.contact-line > a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.school-hours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+}
+
+.school-hours span {
+  white-space: nowrap;
 }
 
 footer a:hover {

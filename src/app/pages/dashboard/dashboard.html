@@ -1,0 +1,230 @@
+@if (!token()) {
+  <main class="login-shell">
+    <section class="login-panel">
+      <div class="login-brand">
+        <span class="brand-mark">TT</span>
+        <div>
+          <span class="eyebrow">Tiny Tara Preschool</span>
+          <h1>Studio dashboard</h1>
+        </div>
+      </div>
+      <p class="login-intro">A quiet control room for the pages, contact details, and gallery your families see.</p>
+      <form (ngSubmit)="login()" class="login-form">
+        <label>
+          Email
+          <input type="email" name="email" [(ngModel)]="loginForm.email" autocomplete="username" required>
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" [(ngModel)]="loginForm.password" autocomplete="current-password" required>
+        </label>
+        <button class="primary-button full-width" type="submit" [disabled]="loading()">
+          {{ loading() ? 'Signing in…' : 'Enter dashboard' }}
+        </button>
+      </form>
+      @if (error()) {
+        <p class="message error-message">{{ error() }}</p>
+      }
+    </section>
+    <aside class="login-aside">
+      <div class="orbit orbit-one"></div>
+      <div class="orbit orbit-two"></div>
+      <span class="aside-kicker">Admin workspace</span>
+      <h2>Make every little detail feel cared for.</h2>
+      <p>Shape what families discover before they ever walk through the door.</p>
+      <div class="aside-note">Content is published section by section, with a clear preview path for every page.</div>
+    </aside>
+  </main>
+} @else {
+  <div class="dashboard-shell">
+    <aside class="sidebar">
+      <a class="dashboard-logo" routerLink="/">
+        <span class="brand-mark">TT</span>
+        <span><strong>Tiny Tara</strong><small>Studio</small></span>
+      </a>
+      <div class="sidebar-rule"></div>
+      <p class="nav-label">Workspace</p>
+      <nav>
+        <button [class.active]="activeView() === 'overview'" (click)="activeView.set('overview')"><span>01</span>Overview</button>
+        <button [class.active]="activeView() === 'pages'" (click)="activeView.set('pages')"><span>02</span>Page content</button>
+        <button [class.active]="activeView() === 'contact'" (click)="activeView.set('contact')"><span>03</span>Contact details</button>
+        <button [class.active]="activeView() === 'gallery'" (click)="activeView.set('gallery')"><span>04</span>Gallery upload</button>
+        @if (canManageStaff()) {
+          <button [class.active]="activeView() === 'staff'" (click)="startStaffForm()"><span>05</span>Staff accounts</button>
+        }
+        @if (canManageStudents()) {
+          <button [class.active]="activeView() === 'students'" (click)="startStudentForm()"><span>06</span>Students</button>
+        }
+        @if (canRecordAttendance()) {
+          <button [class.active]="activeView() === 'attendance'" (click)="activeView.set('attendance')"><span>07</span>Attendance</button>
+        }
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="user-chip">
+          <span class="avatar">{{ user()?.name?.charAt(0) ?? 'A' }}</span>
+          <span><strong>{{ user()?.name }}</strong><small>{{ user()?.role }}</small></span>
+        </div>
+        <button class="sign-out profile-link" (click)="activeView.set('profile')">My profile <span>→</span></button>
+        <button class="sign-out" (click)="logout()">Sign out <span>↗</span></button>
+      </div>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div>
+          <span class="eyebrow">Tiny Tara / Control room</span>
+          <h1>{{ activeView() === 'overview' ? 'Good morning, editor.' : activeView() === 'pages' ? 'Page content' : activeView() === 'contact' ? 'Contact details' : activeView() === 'gallery' ? 'Gallery upload' : activeView() === 'staff' ? 'Staff accounts' : activeView() === 'students' ? 'Students' : activeView() === 'attendance' ? 'Staff attendance' : 'My profile' }}</h1>
+        </div>
+        <a class="preview-link" routerLink="/" target="_blank">View public site <span>↗</span></a>
+      </header>
+
+      @if (error()) { <p class="message error-message">{{ error() }}</p> }
+      @if (notice()) { <p class="message success-message">{{ notice() }}</p> }
+
+      @if (activeView() === 'overview') {
+        <section class="welcome-band">
+          <div>
+            <span class="section-kicker">Today at the preschool</span>
+            <h2>Keep the welcome warm.</h2>
+            <p>Update the pieces families notice first, then let the public pages do the talking.</p>
+          </div>
+          <button class="primary-button" (click)="activeView.set('pages'); startNewContent()">Add page section <span>＋</span></button>
+        </section>
+        <section class="stat-grid">
+          <article class="stat-card accent-coral"><span>Published sections</span><strong>{{ publishedCount() }}</strong><small>ready for families</small></article>
+          <article class="stat-card accent-blue"><span>Pages touched</span><strong>{{ pageCount() }}</strong><small>with managed content</small></article>
+          <article class="stat-card accent-yellow"><span>Team accounts</span><strong>{{ staffAccountCount() || '—' }}</strong><small>staff accounts, excluding students</small></article>
+        </section>
+        <section class="role-summary panel">
+          <div class="panel-heading"><div><span class="section-kicker">People at Tiny Tara</span><h3>Accounts by role</h3></div><button class="text-button" (click)="startStaffForm()">Open staff directory →</button></div>
+          <div class="role-summary-grid">
+            <div><strong>{{ roleCounts()['super_admin'] || 0 }}</strong><span>Super Admin</span></div>
+            <div><strong>{{ roleCounts()['admin'] || 0 }}</strong><span>Admin</span></div>
+            <div><strong>{{ roleCounts()['teacher'] || 0 }}</strong><span>Teacher</span></div>
+            <div><strong>{{ roleCounts()['clerk'] || 0 }}</strong><span>Clerk</span></div>
+            <div><strong>{{ roleCounts()['security'] || 0 }}</strong><span>Security</span></div>
+            <div><strong>{{ roleCounts()['student'] || 0 }}</strong><span>Student</span></div>
+          </div>
+        </section>
+        <section class="overview-grid">
+          <div class="panel recent-panel">
+            <div class="panel-heading"><div><span class="section-kicker">Quick look</span><h3>Home page sections</h3></div><button class="text-button" (click)="activeView.set('pages'); selectPage('home')">Manage all →</button></div>
+            @if (pageContents().length) {
+              <div class="mini-list">
+                @for (content of pageContents().slice(0, 4); track content.id) {
+                  <button class="mini-row" (click)="editContent(content)"><span class="row-index">{{ content.display_order | number:'2.0' }}</span><span><strong>{{ content.section_name }}</strong><small>{{ content.title || 'Untitled section' }}</small></span><span class="status-dot" [class.offline]="!content.is_published"></span></button>
+                }
+              </div>
+            } @else {
+              <div class="empty-state"><strong>Your first section is waiting.</strong><span>Add a hero, mission, or welcome block for Home.</span></div>
+            }
+          </div>
+          <div class="panel editorial-panel"><span class="section-kicker">Editorial note</span><h3>Small edits, visible difference.</h3><p>Use short section names like <em>hero</em>, <em>mission</em>, and <em>contact_links</em>. The public site receives only published sections.</p><button class="outline-button" (click)="activeView.set('contact')">Review contact details</button></div>
+        </section>
+      }
+
+      @if (activeView() === 'pages') {
+        <section class="content-toolbar">
+          <div class="page-tabs">
+            @for (page of pageOptions; track page.value) {
+              <button [class.active]="selectedPage() === page.value" (click)="selectPage(page.value)">{{ page.label }}</button>
+            }
+          </div>
+          <button class="primary-button" (click)="startNewContent()">New section <span>＋</span></button>
+        </section>
+        <section class="editor-layout">
+          <div class="panel sections-panel">
+            <div class="panel-heading"><div><span class="section-kicker">{{ selectedPage() }} page</span><h3>Sections</h3></div><span class="count-badge">{{ pageContents().length }}</span></div>
+            @if (pageContents().length) {
+              <div class="section-list">
+                @for (content of pageContents(); track content.id) {
+                  <article class="section-row" [class.selected]="editingContentId() === content.id">
+                    <button class="section-select" (click)="editContent(content)"><span class="drag-number">{{ content.display_order | number:'2.0' }}</span><span><strong>{{ content.section_name }}</strong><small>{{ content.title || 'No title' }}</small></span></button>
+                    <span class="publish-pill" [class.unpublished]="!content.is_published">{{ content.is_published ? 'Live' : 'Draft' }}</span>
+                    <button class="delete-button" title="Delete section" (click)="deleteContent(content)">×</button>
+                  </article>
+                }
+              </div>
+            } @else {
+              <div class="empty-state"><strong>No sections yet.</strong><span>Create the first block for this page.</span></div>
+            }
+          </div>
+          <form class="panel content-form" (ngSubmit)="saveContent()">
+            <div class="panel-heading"><div><span class="section-kicker">{{ editingContentId() ? 'Edit section' : 'New section' }}</span><h3>{{ editingContentId() ? contentForm.section_name : 'Build a page block' }}</h3></div></div>
+            @if (!editingContentId()) {
+              <div class="field-grid">
+                <label>Page<select name="page_name" [(ngModel)]="contentForm.page_name"><option value="home">Home</option><option value="about">About Us</option><option value="header">Header</option><option value="footer">Footer</option><option value="contact">Contact</option><option value="activities">Activities</option></select></label>
+                <label>Section key<input name="section_name" [(ngModel)]="contentForm.section_name" placeholder="hero" required></label>
+              </div>
+            }
+            <div class="field-grid"><label>Content type<select name="content_type" [(ngModel)]="contentForm.content_type"><option value="text">Text</option><option value="hero">Hero</option><option value="link">Link group</option><option value="image">Image</option></select></label><label>Display order<input type="number" name="display_order" [(ngModel)]="contentForm.display_order" min="0"></label></div>
+            <label>Title<input name="title" [(ngModel)]="contentForm.title" placeholder="A short, welcoming heading"></label>
+            <label>Body<textarea name="body" [(ngModel)]="contentForm.body" rows="6" placeholder="Write the content families should see..."></textarea></label>
+            <div class="field-grid"><label>Image URL<input name="image_url" [(ngModel)]="contentForm.image_url" placeholder="/uploads/gallery/..." /></label><label>Link URL<input name="link_url" [(ngModel)]="contentForm.link_url" placeholder="/about" /></label></div>
+            <label class="toggle-field"><input type="checkbox" name="is_published" [(ngModel)]="contentForm.is_published"><span><strong>Publish this section</strong><small>Visible on the public page</small></span></label>
+            <div class="form-actions"><button type="button" class="outline-button" (click)="startNewContent()">Clear</button><button class="primary-button" type="submit" [disabled]="loading()">{{ loading() ? 'Saving…' : 'Save section' }}</button></div>
+          </form>
+        </section>
+      }
+
+      @if (activeView() === 'contact') {
+        <section class="single-panel-wrap"><form class="panel contact-form" (ngSubmit)="saveSiteContent()"><div class="panel-heading"><div><span class="section-kicker">Public contact block</span><h3>Make it easy to reach Tiny Tara.</h3></div><span class="form-stamp">Live site details</span></div><div class="field-grid"><label>Email<input type="email" [ngModel]="siteContent().email" (ngModelChange)="updateSiteField('email', $event)" name="email" placeholder="hello@tinytara.com"></label><label>Phone<input [ngModel]="siteContent().phone" (ngModelChange)="updateSiteField('phone', $event)" name="phone" placeholder="+91 ..."></label></div><label>Address<textarea [ngModel]="siteContent().address" (ngModelChange)="updateSiteField('address', $event)" name="address" rows="5" placeholder="School address"></textarea></label><div class="field-grid"><label>School days<input [ngModel]="siteContent().school_days" (ngModelChange)="updateSiteField('school_days', $event)" name="school_days" placeholder="Monday - Friday"></label><label>School hours<input [ngModel]="siteContent().school_hours" (ngModelChange)="updateSiteField('school_hours', $event)" name="school_hours" placeholder="9:00 AM - 2:00 PM"></label></div><div class="form-actions"><button class="primary-button" type="submit" [disabled]="loading()">Save contact details</button></div></form></section>
+      }
+
+      @if (activeView() === 'gallery') {
+        <section class="single-panel-wrap"><form class="panel upload-panel" (ngSubmit)="uploadGallery()"><div class="panel-heading"><div><span class="section-kicker">Media library</span><h3>Put a real moment on the page.</h3></div><span class="form-stamp">JPG · PNG · WebP</span></div><div class="upload-drop"><span class="upload-symbol">↑</span><strong>{{ galleryFile?.name || 'Choose a gallery image' }}</strong><small>Maximum file size 10 MB</small><input type="file" accept="image/jpeg,image/png,image/webp" (change)="onGalleryFile($event)"></div><label>Page name<select name="galleryPageName" [(ngModel)]="galleryPageName"><option value="home">Home</option><option value="about">About Us</option><option value="activities">Activities</option><option value="contact">Contact</option></select></label><div class="form-actions"><button class="primary-button" type="submit" [disabled]="loading() || !galleryFile">Upload image <span>↑</span></button></div></form></section>
+      }
+
+      @if (activeView() === 'staff' && canManageStaff()) {
+        <section class="staff-layout">
+          <form class="panel staff-form" (ngSubmit)="createStaffAccount()">
+            <div class="panel-heading"><div><span class="section-kicker">Restricted workspace</span><h3>Add a team member</h3></div><span class="form-stamp">Admin only</span></div>
+            <p class="form-help">Create an account for a teacher, clerk, or security team member. Their permissions are assigned automatically by role.</p>
+            <label>Full name<input name="staffName" [(ngModel)]="staffForm.name" placeholder="Team member name" minlength="2" required></label>
+            <label>Email<input type="email" name="staffEmail" [(ngModel)]="staffForm.email" placeholder="name@tinytara.com" required></label>
+            <div class="field-grid">
+              <label>Role<select name="staffRole" [(ngModel)]="staffForm.role">@if (isSuperAdmin()) { <option value="admin">Admin</option> }<option value="teacher">Teacher</option><option value="clerk">Clerk</option><option value="security">Security</option></select></label>
+              <label>Temporary password<input type="password" name="staffPassword" [(ngModel)]="staffForm.password" placeholder="At least 8 characters" minlength="8" required></label>
+            </div>
+            <div class="form-actions"><button class="primary-button" type="submit" [disabled]="loading()">{{ loading() ? 'Creating…' : 'Create account' }}</button></div>
+          </form>
+          <div class="panel staff-list-panel">
+            <div class="panel-heading"><div><span class="section-kicker">Team directory</span><h3>Staff accounts</h3></div><span class="count-badge">{{ staffTotal() }}</span></div>
+            <div class="staff-search"><input name="staffSearch" [ngModel]="staffSearch" (ngModelChange)="onStaffSearchChange($event)" (keyup.enter)="searchStaff()" placeholder="Search name, email, or staff ID"><button type="button" class="outline-button" (click)="searchStaff()">Search</button><select name="staffRole" [ngModel]="staffRole" (ngModelChange)="onStaffRoleChange($event)"><option value="">All staff roles</option><option value="super_admin">Super Admin</option><option value="admin">Admin</option><option value="teacher">Teacher</option><option value="clerk">Clerk</option><option value="security">Security</option></select><select name="staffStatus" [ngModel]="staffStatus" (ngModelChange)="onStaffStatusChange($event)"><option value="">All accounts</option><option value="true">Active</option><option value="false">Inactive</option></select></div>
+            <div class="staff-list">
+              @for (member of users(); track member.id) {
+                <div class="staff-row"><div class="staff-identity"><span class="avatar small-avatar">{{ member.name.charAt(0) }}</span><span><strong>{{ member.name }}</strong><small class="staff-role-id">{{ member.role }} · {{ member.staff_id }}</small><small>{{ member.email }}</small></span></div><div class="staff-actions">@if (!member.is_active) { <span class="inactive-label">Inactive</span> }<button type="button" class="password-button" (click)="startPasswordChange(member)">Change password</button>@if (isProtectedAccount(member)) { <span class="protected-account">Protected</span> } @else { <button type="button" class="account-button" (click)="toggleAccount(member)">{{ member.is_active ? 'Deactivate' : 'Activate' }}</button><button type="button" class="account-delete" (click)="deleteAccount(member)">Delete</button> }</div></div>
+              } @empty {
+                <div class="empty-state"><strong>No accounts loaded.</strong><span>Create the first team member above.</span></div>
+              }
+            </div>
+            @if (staffTotalPages() > 1) { <div class="pagination"><button type="button" class="outline-button" [disabled]="staffPage() === 1" (click)="changeStaffPage(staffPage() - 1)">Previous</button><span>Page {{ staffPage() }} of {{ staffTotalPages() }}</span><button type="button" class="outline-button" [disabled]="staffPage() === staffTotalPages()" (click)="changeStaffPage(staffPage() + 1)">Next</button></div> }
+          </div>
+        </section>
+        @if (passwordTarget()) {
+          <div class="password-dialog-backdrop">
+            <form class="password-dialog panel" (ngSubmit)="updateUserPassword()">
+              <span class="section-kicker">Admin credential control</span>
+              <h3>Change password</h3>
+              <p>Set a new password for <strong>{{ passwordTarget()?.name }}</strong>.</p>
+              <label>New password<input type="password" name="newPassword" [(ngModel)]="passwordValue" minlength="8" required autofocus></label>
+              <div class="form-actions"><button type="button" class="outline-button" (click)="cancelPasswordChange()">Cancel</button><button type="submit" class="primary-button" [disabled]="loading()">Update password</button></div>
+            </form>
+          </div>
+        }
+      }
+
+      @if (activeView() === 'students' && canManageStudents()) {
+        <section class="student-layout"><form class="panel student-form" (ngSubmit)="createStudent()"><div class="panel-heading"><div><span class="section-kicker">Student registration</span><h3>Register a new student</h3></div><span class="form-stamp">Inactive until activated</span></div><div class="field-grid"><label>First name<input name="first_name" [(ngModel)]="studentForm.first_name" required></label><label>Last name<input name="last_name" [(ngModel)]="studentForm.last_name" required></label></div><div class="field-grid"><label>Email<input type="email" name="student_email" [(ngModel)]="studentForm.email" required></label><label>Parent mobile<input type="tel" name="parent_mobile" [(ngModel)]="studentForm.parent_mobile" placeholder="919876543210" required></label></div><div class="field-grid"><label>Temporary password<input type="password" name="student_password" [(ngModel)]="studentForm.password" minlength="8" required></label><label>Date of birth<input type="date" name="date_of_birth" [(ngModel)]="studentForm.date_of_birth" required>@if (studentAge() !== null) { <small class="age-preview">Age: {{ studentAge() }} years</small> }</label></div><label>Class<select name="class_option_id" [(ngModel)]="studentForm.class_option_id" required><option value="" disabled>Select class</option>@for (classOption of classOptions(); track classOption.id) { <option [value]="classOption.id">{{ classOption.name }} ({{ classOption.min_age }}–{{ classOption.max_age }} years)</option> }</select></label>@if (selectedClass()) { <p class="class-guidance">{{ selectedClass()?.name }} is intended for ages {{ selectedClass()?.min_age }}–{{ selectedClass()?.max_age }} years.</p> }<div class="form-actions"><button class="primary-button" type="submit" [disabled]="loading() || !classOptions().length">Register student</button></div></form><div class="panel student-list-panel"><div class="panel-heading"><div><span class="section-kicker">Student directory</span><h3>Registered students</h3></div><span class="count-badge">{{ students().length }}</span></div><div class="student-table-wrap"><table class="student-table"><thead><tr><th>Student</th><th>Student ID</th><th>Age</th><th>Class</th><th>Status</th></tr></thead><tbody>@for (student of students(); track student.id) { <tr><td><strong>{{ student.first_name }} {{ student.last_name }}</strong><small>{{ student.parent_mobile }}</small></td><td>{{ student.student_id }}</td><td>{{ student.age }}</td><td>{{ student.class_option.name }}</td><td><span class="status-tag" [class.status-inactive]="student.status !== 'active'">{{ student.status }}</span></td></tr> }</tbody></table>@if (!students().length) { <div class="empty-state"><strong>No students registered.</strong><span>Register the first student using the form.</span></div> }</div></div></section>
+      }
+
+      @if (activeView() === 'attendance' && canRecordAttendance()) {
+        <section class="single-panel-wrap"><form class="panel attendance-form" (ngSubmit)="recordStaffAttendance()"><div class="panel-heading"><div><span class="section-kicker">School movement</span><h3>Record student attendance</h3></div><span class="form-stamp">WhatsApp click-to-chat</span></div><p class="form-help">Select School IN or OUT. WhatsApp will open with the parent number and message pre-filled. You will click Send manually.</p><label>Student<select name="attendanceStudentId" [(ngModel)]="attendanceStudentId" required><option value="" disabled>Select student</option>@for (student of attendanceStudents(); track student.id) { <option [value]="student.id">{{ student.first_name }} {{ student.last_name }} · {{ student.student_id }} · {{ student.class_option.name }}</option> }</select></label><div class="attendance-mode"><button type="button" [class.selected]="attendanceDirection === 'in'" (click)="attendanceDirection = 'in'">School IN</button><button type="button" [class.selected]="attendanceDirection === 'out'" (click)="attendanceDirection = 'out'">School OUT</button></div><div class="form-actions"><button class="primary-button" type="submit" [disabled]="loading() || !attendanceStudents().length">Record and open WhatsApp</button></div></form></section>
+      }
+
+      @if (activeView() === 'profile') {
+        <section class="profile-layout"><form class="panel profile-form" (ngSubmit)="updateProfile()"><div class="panel-heading"><div><span class="section-kicker">Personal details</span><h3>Your profile</h3></div><span class="form-stamp">{{ user()?.staff_id }}</span></div><label>Full name<input name="profileName" [(ngModel)]="profileName" minlength="2" required></label><label>Email<input [value]="user()?.email" disabled></label><label>Role<input [value]="user()?.role" disabled></label><div class="form-actions"><button class="primary-button" type="submit" [disabled]="loading()">Save name</button></div></form><form class="panel profile-form" (ngSubmit)="updateMyPassword()"><div class="panel-heading"><div><span class="section-kicker">Account security</span><h3>Update password</h3></div></div><p class="form-help">Choose a password with at least 8 characters.</p><label>New password<input type="password" name="profilePassword" [(ngModel)]="profilePassword" minlength="8" required></label><div class="form-actions"><button class="primary-button" type="submit" [disabled]="loading()">Update password</button></div></form></section>
+      }
+    </main>
+  </div>
+}

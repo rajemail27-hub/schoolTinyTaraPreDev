@@ -1,7 +1,11 @@
-<app-navbar></app-navbar>
-
-<main>
+@if (isDashboard()) {
   <router-outlet></router-outlet>
-</main>
+} @else {
+  <app-navbar></app-navbar>
 
-<app-footer></app-footer>
+  <main>
+    <router-outlet></router-outlet>
+  </main>
+
+  <app-footer></app-footer>
+}
