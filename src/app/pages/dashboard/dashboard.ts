@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ interface UserProfile {
   id: string;
   staff_id: string;
   name: string;
+  middle_name: string | null;
   email: string;
   role: string;
 }
@@ -47,16 +48,37 @@ interface UserRecord {
   id: string;
   staff_id: string;
   name: string;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
   email: string;
+  mobile: string;
+  address_line1: string;
+  colony: string;
+  city: string;
+  state: string;
+  pin_code: string;
+  blood_group: string | null;
   role: string;
   is_active: boolean;
 }
 
-interface ClassOption { id: string; name: string; min_age: number; max_age: number; display_order: number; is_active: boolean; }
-interface StudentRecord { id: string; student_id: string; first_name: string; last_name: string; parent_mobile: string; date_of_birth: string; age: number; class_option_id: string; class_option: ClassOption; status: string; }
+interface ClassOption { id: string; name: string; min_age: number; max_age: number; monthly_tuition: string; display_order: number; is_active: boolean; }
+interface StudentRecord { id: string; student_id: string; user_id: string; first_name: string; middle_name: string | null; last_name: string; email: string; parent_mobile: string; mobile: string; address_line1: string; colony: string; city: string; state: string; pin_code: string; blood_group: string | null; father_name: string | null; mother_name: string | null; guardian_one_name: string | null; guardian_two_name: string | null; date_of_birth: string; age: number; age_detail: string; class_option_id: string; class_option: ClassOption; status: string; }
 interface AttendancePunch { id: string; student_id: string; student_name: string; class_name: string; parent_mobile: string; direction: string; punched_at: string; }
+interface PunchHistoryRow { id: string; student_name: string; student_id: string; email: string; class_name: string; direction: string; punched_at: string; }
+interface PunchHistoryResponse { items: PunchHistoryRow[]; page: number; page_size: number; total: number; total_pages: number; }
+interface DailyAttendanceRow { student_id: string; student_name: string; student_code: string; attendance_date: string; status: 'present' | 'absent' | 'late' | 'leave' | 'holiday' | null; note: string | null; }
+interface Holiday { id: string; holiday_date: string; name: string; }
+interface TuitionFee { id: string | null; receipt_number: string | null; student_id: string; student_code: string; student_name: string; email: string; parent_mobile: string; class_name: string; fee_year: number; fee_month: number; amount_due: string; amount_paid: string; balance_due: string; payment_date: string | null; payment_method: string | null; payment_reference: string | null; note: string | null; recorded_at: string | null; status: 'not_recorded' | 'partially_paid' | 'paid'; }
+interface TuitionReport { items: TuitionFee[]; page: number; page_size: number; total: number; total_pages: number; total_due: string; total_paid: string; total_balance: string; }
+interface ClassTuition { id: string; class_option_id: string; fee_year: number; amount: string; }
+
+interface RolePermissionEntry { resource: string; action: 'read' | 'create' | 'update' | 'delete'; }
+interface RolePermissionSummary { role: string; permissions: RolePermissionEntry[]; }
 
 type StaffRole = 'admin' | 'teacher' | 'clerk' | 'security';
+type DashboardView = 'overview' | 'pages' | 'contact' | 'gallery' | 'staff' | 'students' | 'classes' | 'holidays' | 'attendance' | 'punch-attendance' | 'tuition' | 'profile' | 'permissions';
 
 @Component({
   selector: 'app-dashboard',
@@ -75,14 +97,48 @@ export class Dashboard implements OnInit {
   readonly pageContents = signal<PageContent[]>([]);
   readonly users = signal<UserRecord[]>([]);
   readonly siteContent = signal<SiteContent>({ email: '', phone: '', address: '', school_days: '', school_hours: '' });
-  readonly activeView = signal<'overview' | 'pages' | 'contact' | 'gallery' | 'staff' | 'students' | 'attendance' | 'profile'>('overview');
+  readonly activeView = signal<DashboardView>('overview');
   readonly classOptions = signal<ClassOption[]>([]);
   readonly students = signal<StudentRecord[]>([]);
+  readonly tuitionStudents = signal<StudentRecord[]>([]);
+  readonly tuitionReport = signal<TuitionReport>({ items: [], page: 1, page_size: 10, total: 0, total_pages: 1, total_due: '0', total_paid: '0', total_balance: '0' });
+  readonly classTuitions = signal<ClassTuition[]>([]);
+  readonly classFeeDetailsVisible = signal(false);
+  readonly classTuitionFormOpen = signal(false);
+  readonly classTuitionFormError = signal('');
+  readonly editingClassTuitionId = signal<string | null>(null);
+  readonly editingClassId = signal<string | null>(null);
   readonly attendanceStudents = signal<StudentRecord[]>([]);
+    readonly punchHistory = signal<PunchHistoryRow[]>([]);
+    readonly punchHistoryTotal = signal(0);
+    readonly punchHistoryPage = signal(1);
+    readonly punchHistoryTotalPages = signal(1);
+  readonly dailyAttendance = signal<DailyAttendanceRow[]>([]);
+  readonly holidays = signal<Holiday[]>([]);
+  readonly editingHolidayId = signal<string | null>(null);
+  readonly rolePermissions = signal<Record<string, RolePermissionSummary>>({});
+  readonly selectedPermissionRole = signal<string>('teacher');
+  readonly permissionResources = signal<string[]>(['users', 'students', 'classes', 'site_content', 'page_content', 'gallery', 'attendance', 'holidays', 'syllabus', 'access_punches', 'tuition_fees']);
+  readonly permissionActions = signal<Array<'read' | 'create' | 'update' | 'delete'>>(['read', 'create', 'update', 'delete']);
+  readonly studentTotal = signal(0);
+  readonly studentPage = signal(1);
+  readonly studentTotalPages = signal(1);
+  readonly selectedStudent = signal<StudentRecord | null>(null);
+  readonly selectedStaff = signal<UserRecord | null>(null);
+  readonly staffFormOpen = signal(false);
+  readonly studentFormOpen = signal(false);
+  readonly tuitionFormOpen = signal(false);
+  readonly tuitionBalancePaymentTarget = signal<TuitionFee | null>(null);
+  readonly tuitionFormError = signal('');
+  readonly tuitionBalancePaymentError = signal('');
+  readonly editingStudentId = signal<string | null>(null);
+  readonly editingStaffId = signal<string | null>(null);
+  readonly studentPasswordTarget = signal<StudentRecord | null>(null);
   readonly selectedPage = signal('home');
   readonly editingContentId = signal<string | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
+  readonly fieldErrors = signal<Record<string, string>>({});
   readonly notice = signal('');
   readonly staffTotal = signal(0);
   readonly staffPage = signal(1);
@@ -95,18 +151,43 @@ export class Dashboard implements OnInit {
   staffSearch = '';
   staffRole = '';
   staffStatus = '';
-  studentForm = { first_name: '', last_name: '', email: '', password: '', parent_mobile: '', date_of_birth: '', class_option_id: '' };
+  studentForm = this.emptyStudentForm();
+  studentSearch = '';
+  studentClassFilter = '';
+  studentPasswordValue = '';
   attendanceStudentId = '';
   attendanceDirection: 'in' | 'out' = 'in';
+    punchDate = new Date().toISOString().slice(0, 10);
+    punchSearch = '';
+    punchClassId = '';
+  attendanceDate = new Date().toISOString().slice(0, 10);
+  attendanceNote: Record<string, string> = {};
+  holidayForm = { holiday_date: '', name: '' };
+  tuitionSearch = '';
+  tuitionClassFilter = '';
+  tuitionMonth = new Date().getMonth() + 1;
+  tuitionYear = new Date().getFullYear();
+  tuitionStudentSearch = '';
+  tuitionStudentClassFilter = '';
+  tuitionBalancePaymentForm = this.emptyTuitionBalancePaymentForm();
+  classTuitionForm = { class_option_id: '', fee_year: new Date().getFullYear(), amount: '' };
+  classFeeDetailsYear = new Date().getFullYear();
+  classForm = { name: '', min_age: 2, max_age: 6, display_order: 0 };
+  readonly tuitionPage = signal(1);
+  tuitionForm = this.emptyTuitionForm();
 
   loginForm = { email: 'admin@tinytara.com', password: 'ChangeMe123!' };
   contentForm = this.emptyContentForm();
-  staffForm: { name: string; email: string; password: string; role: StaffRole } = {
-    name: '',
+  staffForm = {
+    first_name: '',
+    middle_name: '',
+    last_name: '',
     email: '',
     password: '',
-    role: 'teacher'
+    role: 'teacher' as StaffRole,
+    mobile: '', address_line1: '', colony: '', city: '', state: '', pin_code: '', blood_group: ''
   };
+  readonly bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   galleryPageName = 'home';
   galleryFile: File | null = null;
 
@@ -162,12 +243,52 @@ export class Dashboard implements OnInit {
       const headers = this.authHeaders();
       const profile = await firstValueFrom(this.http.get<UserProfile>(`${this.apiUrl}/auth/me`, { headers }));
       this.user.set(profile);
+      if (profile.role === 'teacher') {
+        this.activeView.set('overview');
+      }
       this.profileName = profile.name;
-      await Promise.all([this.loadPageContents(), this.loadSiteContent(), this.loadUsers(), this.loadClasses(), this.loadAttendanceStudents(), this.loadStudents()]);
+      if (this.isTeacher()) {
+        await Promise.all([this.loadUsers(), this.loadStudents(), this.loadDailyAttendance(), this.loadHolidays()]);
+      } else if (profile.role === 'security') {
+        await Promise.all([this.loadAttendanceStudents(), this.loadPunchHistory()]);
+      } else {
+        await Promise.all([this.loadPageContents(), this.loadSiteContent(), this.loadUsers(), this.loadClasses(), this.loadAttendanceStudents(), this.loadDailyAttendance(), this.loadStudents(), this.loadHolidays()]);
+      }
     } catch (error) {
       this.error.set(this.errorMessage(error, 'The dashboard could not load its data.'));
       if (error instanceof HttpErrorResponse && error.status === 401) {
         this.logout();
+      }
+    }
+  }
+
+  async navigateTo(view: DashboardView): Promise<void> {
+    if (this.isTeacher() && !['overview', 'attendance', 'profile', 'holidays'].includes(view)) {
+      return;
+    }
+    this.clearMessages();
+    this.activeView.set(view);
+    if (view === 'overview') {
+      await Promise.all([this.loadUsers(), this.loadStudents()]);
+    } else if (view === 'staff') {
+      await this.loadUsers(1);
+    } else if (view === 'students') {
+      await this.loadStudents(1);
+    } else if (view === 'attendance') {
+      await Promise.all([this.loadDailyAttendance(), this.loadHolidays()]);
+    } else if (view === 'punch-attendance') {
+      await Promise.all([this.loadAttendanceStudents(), this.loadPunchHistory()]);
+    } else if (view === 'tuition') {
+      await Promise.all([this.loadTuitionStudents(), this.loadTuitionReport(), this.loadClassTuitions()]);
+    } else if (view === 'classes') {
+      await this.loadClasses();
+    } else if (view === 'pages') {
+      await this.loadPageContents();
+    } else if (view === 'holidays') {
+      await this.loadHolidays();
+    } else if (view === 'permissions') {
+      if (this.isSuperAdmin()) {
+        await this.loadRolePermissions();
       }
     }
   }
@@ -216,10 +337,309 @@ export class Dashboard implements OnInit {
   }
 
   canRecordAttendance(): boolean {
-    return ['super_admin', 'admin', 'teacher'].includes(this.user()?.role ?? '');
+    return ['super_admin', 'admin', 'clerk', 'teacher'].includes(this.user()?.role ?? '');
   }
 
-  async recordStaffAttendance(): Promise<void> {
+  canManageClassAttendance(): boolean {
+    return ['super_admin', 'admin', 'clerk', 'teacher'].includes(this.user()?.role ?? '');
+  }
+
+  canManagePunchAttendance(): boolean {
+    return ['super_admin', 'admin', 'clerk', 'security'].includes(this.user()?.role ?? '');
+  }
+
+  canManageTuition(): boolean {
+    return ['super_admin', 'admin', 'clerk'].includes(this.user()?.role ?? '');
+  }
+
+  async loadTuitionReport(): Promise<void> {
+    if (!this.canManageTuition()) return;
+    let params = new HttpParams().set('fee_month', this.tuitionMonth).set('fee_year', this.tuitionYear).set('page', this.tuitionPage()).set('page_size', 10);
+    if (this.tuitionSearch.trim()) params = params.set('search', this.tuitionSearch.trim());
+    if (this.tuitionClassFilter) params = params.set('class_option_id', this.tuitionClassFilter);
+    try {
+      this.tuitionReport.set(await firstValueFrom(this.http.get<TuitionReport>(`${this.apiUrl}/tuition-fees/report`, { headers: this.authHeaders(), params })));
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to load the tuition report.'));
+    }
+  }
+
+  async recordTuitionFee(): Promise<void> {
+    this.selectTuitionStudentFromSearch();
+    if (!this.tuitionForm.student_id || !this.tuitionForm.amount_due) {
+      this.tuitionFormError.set('Select a student with a configured class fee.');
+      return;
+    }
+    const amountDue = Number(this.tuitionForm.amount_due);
+    const amountPaid = Number(this.tuitionForm.amount_paid || 0);
+    if (!Number.isFinite(amountDue) || amountDue <= 0 || !Number.isFinite(amountPaid) || amountPaid < 0 || amountPaid > amountDue) {
+      this.tuitionFormError.set('Enter valid amounts. The deposit cannot exceed the monthly tuition due.');
+      return;
+    }
+    if (amountPaid > 0 && (!this.tuitionForm.payment_date || !this.tuitionForm.payment_method)) {
+      this.tuitionFormError.set('A payment date and method are required when recording a deposit.');
+      return;
+    }
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.post<TuitionFee>(`${this.apiUrl}/tuition-fees`, {
+        ...this.tuitionForm,
+        amount_due: amountDue,
+        amount_paid: amountPaid,
+        payment_date: amountPaid > 0 ? this.tuitionForm.payment_date : null,
+        payment_method: amountPaid > 0 ? this.tuitionForm.payment_method : null,
+        payment_reference: this.tuitionForm.payment_reference || null,
+        note: this.tuitionForm.note || null
+      }, { headers: this.authHeaders() }));
+      this.tuitionForm = this.emptyTuitionForm();
+      this.tuitionFormOpen.set(false);
+      await this.loadTuitionReport();
+      this.notice.set('Tuition record saved. Download the receipt from the report.');
+    } catch (error) {
+      this.tuitionFormError.set(this.errorMessage(error, 'Unable to save the tuition record.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  openTuitionBalancePayment(fee: TuitionFee): void {
+    this.tuitionBalancePaymentForm = this.emptyTuitionBalancePaymentForm(fee.balance_due);
+    this.tuitionBalancePaymentError.set('');
+    this.tuitionBalancePaymentTarget.set(fee);
+    this.clearMessages();
+  }
+
+  async collectTuitionBalance(): Promise<void> {
+    const fee = this.tuitionBalancePaymentTarget();
+    const amount = Number(this.tuitionBalancePaymentForm.amount);
+    if (!fee || !Number.isFinite(amount) || amount <= 0 || amount > Number(fee.balance_due)) {
+      this.tuitionBalancePaymentError.set('Enter a payment amount that does not exceed the remaining balance.');
+      return;
+    }
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.post<TuitionFee>(`${this.apiUrl}/tuition-fees/${fee.id}/balance-payment`, {
+        ...this.tuitionBalancePaymentForm,
+        amount,
+        payment_reference: this.tuitionBalancePaymentForm.payment_reference || null,
+        note: this.tuitionBalancePaymentForm.note || null
+      }, { headers: this.authHeaders() }));
+      this.tuitionBalancePaymentTarget.set(null);
+      await this.loadTuitionReport();
+      this.notice.set('Balance payment recorded.');
+    } catch (error) {
+      this.tuitionBalancePaymentError.set(this.errorMessage(error, 'Unable to record the balance payment.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  clearTuitionFilters(): void {
+    this.tuitionSearch = '';
+    this.tuitionClassFilter = '';
+    this.tuitionMonth = new Date().getMonth() + 1;
+    this.tuitionYear = new Date().getFullYear();
+    this.tuitionPage.set(1);
+    void this.loadTuitionReport();
+  }
+
+  openTuitionForm(): void {
+    this.tuitionForm = this.emptyTuitionForm();
+    this.tuitionStudentSearch = '';
+    this.tuitionStudentClassFilter = '';
+    this.tuitionFormError.set('');
+    this.tuitionFormOpen.set(true);
+    this.clearMessages();
+  }
+
+  openTuitionFormForStudent(fee: TuitionFee): void {
+    this.openTuitionForm();
+    this.tuitionStudentClassFilter = this.classOptions().find(option => option.name === fee.class_name)?.id ?? '';
+    this.tuitionStudentSearch = `${fee.student_name} (${fee.student_code})`;
+    this.tuitionForm.student_id = fee.student_id;
+    this.tuitionForm.fee_month = fee.fee_month;
+    this.tuitionForm.fee_year = fee.fee_year;
+    this.tuitionForm.amount_due = fee.amount_due;
+  }
+
+  updateTuitionDue(): void {
+    const student = this.tuitionStudents().find(item => item.id === this.tuitionForm.student_id);
+    const classTuition = this.classTuitions().find(item => item.class_option_id === student?.class_option_id && item.fee_year === this.tuitionForm.fee_year);
+    this.tuitionForm.amount_due = classTuition?.amount ?? '';
+  }
+
+  async saveClassTuition(): Promise<void> {
+    const amount = Number(this.classTuitionForm.amount);
+    const classOption = this.classOptions().find(item => item.id === this.classTuitionForm.class_option_id);
+    if (!classOption || !Number.isFinite(amount) || amount <= 0) {
+      this.classTuitionFormError.set('Monthly fee must be greater than zero.');
+      return;
+    }
+    this.setBusy();
+    try {
+      const request = this.editingClassTuitionId()
+        ? this.http.put<ClassTuition>(`${this.apiUrl}/admin/classes/${classOption.id}/tuition`, { fee_year: this.classTuitionForm.fee_year, amount }, { headers: this.authHeaders() })
+        : this.http.post<ClassTuition>(`${this.apiUrl}/admin/classes/${classOption.id}/tuition`, { fee_year: this.classTuitionForm.fee_year, amount }, { headers: this.authHeaders() });
+      await firstValueFrom(request);
+      await this.loadClassTuitions();
+      await this.loadTuitionReport();
+      this.editingClassTuitionId.set(null);
+      this.classTuitionForm.amount = '';
+      this.classTuitionFormOpen.set(false);
+      this.notice.set(`${classOption.name} tuition updated for ${this.classTuitionForm.fee_year}.`);
+    } catch (error) {
+      this.classTuitionFormError.set(this.errorMessage(error, 'Unable to update the class tuition.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async createClass(): Promise<void> {
+    if (this.classForm.min_age > this.classForm.max_age) {
+      this.error.set('Minimum age cannot exceed maximum age.');
+      return;
+    }
+    this.setBusy();
+    try {
+      const classId = this.editingClassId();
+      const request = classId
+        ? this.http.put<ClassOption>(`${this.apiUrl}/admin/classes/${classId}`, this.classForm, { headers: this.authHeaders() })
+        : this.http.post<ClassOption>(`${this.apiUrl}/admin/classes`, this.classForm, { headers: this.authHeaders() });
+      await firstValueFrom(request);
+      this.classForm = { name: '', min_age: 2, max_age: 6, display_order: 0 };
+      this.editingClassId.set(null);
+      await this.loadClasses();
+      this.notice.set(classId ? 'Class updated.' : 'Class added.');
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to add the class.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  editClass(classOption: ClassOption): void {
+    this.classForm = { name: classOption.name, min_age: classOption.min_age, max_age: classOption.max_age, display_order: classOption.display_order };
+    this.editingClassId.set(classOption.id);
+    this.clearMessages();
+  }
+
+  cancelClassEdit(): void {
+    this.classForm = { name: '', min_age: 2, max_age: 6, display_order: 0 };
+    this.editingClassId.set(null);
+    this.clearMessages();
+  }
+
+  orderedClassTuitions(): ClassTuition[] {
+    const displayOrder = new Map(this.classOptions().map(classOption => [classOption.id, classOption.display_order]));
+    return [...this.classTuitions()].sort((first, second) => (displayOrder.get(first.class_option_id) ?? Number.MAX_SAFE_INTEGER) - (displayOrder.get(second.class_option_id) ?? Number.MAX_SAFE_INTEGER) || first.fee_year - second.fee_year);
+  }
+
+  async toggleClassFeeDetails(): Promise<void> {
+    const visible = !this.classFeeDetailsVisible();
+    this.classFeeDetailsVisible.set(visible);
+    if (visible) await this.loadClassTuitions(this.classFeeDetailsYear);
+  }
+
+  async changeClassFeeDetailsYear(): Promise<void> {
+    await this.loadClassTuitions(this.classFeeDetailsYear);
+  }
+
+  openClassTuitionForm(): void {
+    this.classTuitionForm = { class_option_id: '', fee_year: new Date().getFullYear(), amount: '' };
+    this.editingClassTuitionId.set(null);
+    this.classTuitionFormError.set('');
+    this.classTuitionFormOpen.set(true);
+  }
+
+  editClassTuition(fee: ClassTuition): void {
+    this.classTuitionForm = { class_option_id: fee.class_option_id, fee_year: fee.fee_year, amount: fee.amount };
+    this.editingClassTuitionId.set(fee.id);
+    this.classTuitionFormError.set('');
+    this.classTuitionFormOpen.set(true);
+  }
+
+  changeTuitionPage(page: number): void {
+    if (page < 1 || page > this.tuitionReport().total_pages) return;
+    this.tuitionPage.set(page);
+    void this.loadTuitionReport();
+  }
+
+  searchTuitionReport(): void {
+    this.tuitionPage.set(1);
+    void this.loadTuitionReport();
+  }
+
+  downloadTuitionReport(format: 'pdf' | 'xlsx'): void {
+    let params = new HttpParams().set('fee_month', this.tuitionMonth).set('fee_year', this.tuitionYear);
+    if (this.tuitionSearch.trim()) params = params.set('search', this.tuitionSearch.trim());
+    if (this.tuitionClassFilter) params = params.set('class_option_id', this.tuitionClassFilter);
+    void this.downloadFile(`${this.apiUrl}/tuition-fees/report.${format}`, `tuition-report.${format}`, params);
+  }
+
+  downloadTuitionSlip(fee: TuitionFee): void {
+    void this.downloadFile(`${this.apiUrl}/tuition-fees/${fee.id}/slip.pdf`, `${fee.receipt_number}.pdf`);
+  }
+
+  isTeacher(): boolean { return this.user()?.role === 'teacher'; }
+
+  canManageClasses(): boolean { return ['super_admin', 'admin'].includes(this.user()?.role ?? ''); }
+
+  canViewHolidays(): boolean { return ['super_admin', 'admin', 'clerk', 'teacher'].includes(this.user()?.role ?? ''); }
+
+  canManageHolidays(): boolean { return ['super_admin', 'admin', 'clerk'].includes(this.user()?.role ?? ''); }
+
+  punchClasses(): ClassOption[] {
+    const classes = new Map(this.attendanceStudents().map(student => [student.class_option.id, student.class_option]));
+    return Array.from(classes.values()).sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name));
+  }
+
+  async loadPunchHistory(): Promise<void> {
+    if (!this.canManagePunchAttendance()) return;
+    let params = new HttpParams();
+    if (this.punchDate) params = params.set('punched_date', this.punchDate);
+    if (this.punchSearch.trim()) params = params.set('search', this.punchSearch.trim());
+    if (this.punchClassId) params = params.set('class_option_id', this.punchClassId);
+    params = params.set('page', this.punchHistoryPage());
+    params = params.set('page_size', 10);
+    try {
+      const response = await firstValueFrom(this.http.get<PunchHistoryResponse>(`${this.apiUrl}/access-punches`, { headers: this.authHeaders(), params }));
+      this.punchHistory.set(response.items);
+      this.punchHistoryTotal.set(response.total);
+      this.punchHistoryPage.set(response.page);
+      this.punchHistoryTotalPages.set(response.total_pages);
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to load Punch In/OUT history.'));
+    }
+  }
+
+  clearPunchFilters(): void {
+    this.punchDate = '';
+    this.punchSearch = '';
+    this.punchClassId = '';
+    this.punchHistoryPage.set(1);
+    void this.loadPunchHistory();
+  }
+
+  async onPunchSearchChange(value: string): Promise<void> {
+    this.punchSearch = value;
+    if (!value.trim()) {
+      this.punchHistoryPage.set(1);
+      await this.loadPunchHistory();
+    }
+  }
+
+  searchPunchHistory(): void {
+    this.punchHistoryPage.set(1);
+    void this.loadPunchHistory();
+  }
+
+  changePunchHistoryPage(page: number): void {
+    if (page < 1 || page > this.punchHistoryTotalPages()) return;
+    this.punchHistoryPage.set(page);
+    void this.loadPunchHistory();
+  }
+
+  async recordStaffAttendance(sendWhatsApp = true): Promise<void> {
     if (!this.attendanceStudentId) {
       this.error.set('Select a student first.');
       return;
@@ -227,34 +647,227 @@ export class Dashboard implements OnInit {
     this.setBusy();
     try {
       const result = await firstValueFrom(this.http.post<AttendancePunch>(`${this.apiUrl}/attendance/punch`, { student_id: this.attendanceStudentId, direction: this.attendanceDirection }, { headers: this.authHeaders() }));
-      const punchedAt = new Date(result.punched_at);
-      const date = punchedAt.toLocaleDateString('en-IN');
-      const day = punchedAt.toLocaleDateString('en-IN', { weekday: 'long' });
-      const time = punchedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-      const message = `Tiny Tara Preschool\nStudent Name: ${result.student_name}\nStudent ID: ${result.student_id}\nClass: ${result.class_name}\nDate: ${date}\nDay: ${day}\nTime: ${time}\nStatus: School ${result.direction}`;
-      const phone = result.parent_mobile.replace(/\D/g, '');
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
-      this.notice.set(`School ${result.direction} recorded. WhatsApp opened for manual sending.`);
+      if (sendWhatsApp) {
+        const punchedAt = new Date(result.punched_at);
+        const date = punchedAt.toLocaleDateString('en-IN');
+        const day = punchedAt.toLocaleDateString('en-IN', { weekday: 'long' });
+        const time = punchedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const message = `Tiny Tara Preschool\nStudent Name: ${result.student_name}\nStudent ID: ${result.student_id}\nClass: ${result.class_name}\nDate: ${date}\nDay: ${day}\nTime: ${time}\nStatus: School ${result.direction}`;
+        const phone = result.parent_mobile.replace(/\D/g, '');
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+        this.notice.set(`School ${result.direction} recorded. WhatsApp opened for manual sending.`);
+      } else {
+        this.notice.set(`School ${result.direction} recorded.`);
+      }
+      await this.loadPunchHistory();
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to record school attendance.'));
     } finally { this.loading.set(false); }
   }
 
+  async loadDailyAttendance(): Promise<void> {
+    try {
+      this.dailyAttendance.set(await firstValueFrom(this.http.get<DailyAttendanceRow[]>(`${this.apiUrl}/attendance/daily`, { headers: this.authHeaders(), params: { attendance_date: this.attendanceDate } })));
+    } catch (error) { this.error.set(this.errorMessage(error, 'Unable to load daily attendance.')); }
+  }
+
+  async changeAttendanceDate(date: string): Promise<void> {
+    this.attendanceDate = date;
+    await this.loadDailyAttendance();
+  }
+
+  isAttendanceToday(): boolean { return this.attendanceDate === new Date().toISOString().slice(0, 10); }
+
+  selectedHoliday(): Holiday | undefined { return this.holidays().find(holiday => holiday.holiday_date === this.attendanceDate); }
+
+  async saveDailyAttendance(row: DailyAttendanceRow, status: string): Promise<void> {
+    if (!status || row.status === 'holiday') return;
+    try {
+      await firstValueFrom(this.http.put(`${this.apiUrl}/attendance/daily`, { student_id: row.student_id, attendance_date: this.attendanceDate, status, note: this.attendanceNote[row.student_id] || null }, { headers: this.authHeaders() }));
+      row.status = status as DailyAttendanceRow['status'];
+      this.dailyAttendance.set([...this.dailyAttendance()]);
+      this.notice.set(`${row.student_name}'s attendance was saved.`);
+    } catch (error) { this.error.set(this.errorMessage(error, 'Unable to save attendance.')); }
+  }
+
+  async addHoliday(): Promise<void> {
+    if (!this.holidayForm.holiday_date || !this.holidayForm.name.trim()) {
+      this.error.set('Enter a holiday date and name.');
+      return;
+    }
+    this.setBusy();
+    try {
+      const holidayId = this.editingHolidayId();
+      const request = holidayId
+        ? this.http.put(`${this.apiUrl}/admin/holidays/${holidayId}`, this.holidayForm, { headers: this.authHeaders() })
+        : this.http.post(`${this.apiUrl}/admin/holidays`, this.holidayForm, { headers: this.authHeaders() });
+      await firstValueFrom(request);
+      this.holidayForm = { holiday_date: '', name: '' };
+      this.editingHolidayId.set(null);
+      await this.loadHolidays();
+      this.notice.set(holidayId ? 'Holiday updated.' : 'Holiday added.');
+    } catch (error) { this.error.set(this.errorMessage(error, this.editingHolidayId() ? 'Unable to update holiday.' : 'Unable to add holiday.')); }
+    finally { this.loading.set(false); }
+  }
+
+  editHoliday(holiday: Holiday): void {
+    this.editingHolidayId.set(holiday.id);
+    this.holidayForm = { holiday_date: holiday.holiday_date, name: holiday.name };
+    this.clearMessages();
+  }
+
+  cancelHolidayEdit(): void {
+    this.editingHolidayId.set(null);
+    this.holidayForm = { holiday_date: '', name: '' };
+  }
+
+  async deleteHoliday(holiday: Holiday): Promise<void> {
+    if (!window.confirm(`Delete ${holiday.name} on ${holiday.holiday_date}?`)) return;
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.delete(`${this.apiUrl}/admin/holidays/${holiday.id}`, { headers: this.authHeaders() }));
+      if (this.editingHolidayId() === holiday.id) this.cancelHolidayEdit();
+      await this.loadHolidays();
+      this.notice.set('Holiday deleted.');
+    } catch (error) { this.error.set(this.errorMessage(error, 'Unable to delete holiday.')); }
+    finally { this.loading.set(false); }
+  }
+
   startStudentForm(): void {
-    this.studentForm = { first_name: '', last_name: '', email: '', password: '', parent_mobile: '', date_of_birth: '', class_option_id: this.classOptions()[0]?.id ?? '' };
+    this.editingStudentId.set(null);
+    this.studentForm = this.emptyStudentForm();
+    this.studentFormOpen.set(true);
     this.activeView.set('students');
     this.clearMessages();
   }
 
   async createStudent(): Promise<void> {
+    const missing = this.missingFields(this.studentForm, ['first_name', 'email', 'parent_mobile', 'address_line1', 'colony', 'city', 'state', 'pin_code', 'date_of_birth', 'class_option_id', 'guardian_one_name']);
+    if (!this.editingStudentId() && !this.studentForm.password.trim()) missing.push('password');
+    if (missing.length) {
+      this.showFieldErrors(missing);
+      return;
+    }
+    if (this.studentForm.first_name.trim().length < 2) {
+      this.showFieldErrors([], { 'first name': 'First name must be at least 2 characters.' });
+      return;
+    }
+    if (!this.isValidEmail(this.studentForm.email)) {
+      this.showFieldErrors([], { email: 'Enter a valid email address, for example name@example.com.' });
+      return;
+    }
     this.setBusy();
     try {
-      await firstValueFrom(this.http.post(`${this.apiUrl}/admin/students`, this.studentForm, { headers: this.authHeaders() }));
-      this.notice.set('Student registered as an inactive account. Activate it from Staff accounts when ready.');
-      await this.loadStudents();
+      const id = this.editingStudentId();
+      const payload = id
+        ? (({ password: _password, ...profile }) => ({ ...profile, mobile: this.studentForm.parent_mobile, blood_group: this.studentForm.blood_group || null }))(this.studentForm)
+        : { ...this.studentForm, mobile: this.studentForm.parent_mobile, blood_group: this.studentForm.blood_group || null };
+      const request = id
+        ? this.http.put(`${this.apiUrl}/admin/students/${id}`, payload, { headers: this.authHeaders() })
+        : this.http.post(`${this.apiUrl}/admin/students`, payload, { headers: this.authHeaders() });
+      await firstValueFrom(request);
+      this.notice.set(id ? 'Student details updated.' : 'Student registered as an inactive account. Activate it from the student directory when ready.');
+      await this.loadStudents(1);
+      this.studentFormOpen.set(false);
       this.startStudentForm();
+      this.studentFormOpen.set(false);
     } catch (error) {
-      this.error.set(this.errorMessage(error, 'Unable to register this student.'));
+      this.setFormError(error, this.editingStudentId() ? 'Unable to update this student.' : 'Unable to register this student.');
+    } finally { this.loading.set(false); }
+  }
+
+  async searchStudents(): Promise<void> {
+    await this.loadStudents(1);
+  }
+
+  async onStudentSearchChange(value: string): Promise<void> {
+    this.studentSearch = value;
+    if (!value.trim()) {
+      await this.loadStudents(1);
+    }
+  }
+
+  async onStudentClassFilterChange(classOptionId: string): Promise<void> {
+    this.studentClassFilter = classOptionId;
+    await this.loadStudents(1);
+  }
+
+  async changeStudentPage(page: number): Promise<void> {
+    if (page < 1 || page > this.studentTotalPages()) return;
+    await this.loadStudents(page);
+  }
+
+  viewStudent(student: StudentRecord): void {
+    this.selectedStudent.set(student);
+  }
+
+  editStudent(student: StudentRecord): void {
+    this.editingStudentId.set(student.id);
+    this.studentForm = { first_name: student.first_name, middle_name: student.middle_name ?? '', last_name: student.last_name, email: student.email, password: '', parent_mobile: student.parent_mobile, mobile: student.parent_mobile, address_line1: student.address_line1, colony: student.colony, city: student.city, state: student.state, pin_code: student.pin_code, blood_group: student.blood_group ?? '', father_name: student.father_name ?? '', mother_name: student.mother_name ?? '', guardian_one_name: student.guardian_one_name ?? '', guardian_two_name: student.guardian_two_name ?? '', date_of_birth: student.date_of_birth, class_option_id: student.class_option_id };
+    this.studentFormOpen.set(true);
+    this.selectedStudent.set(null);
+    this.activeView.set('students');
+  }
+
+  closeStudentDetail(): void {
+    this.selectedStudent.set(null);
+  }
+
+  async toggleStudentStatus(student: StudentRecord): Promise<void> {
+    const nextActive = student.status !== 'active';
+    if (!window.confirm(`${nextActive ? 'Activate' : 'Deactivate'} ${student.first_name} ${student.last_name}'s account?`)) {
+      return;
+    }
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.patch<StudentRecord>(`${this.apiUrl}/admin/students/${student.id}/status`, { is_active: nextActive }, { headers: this.authHeaders() }));
+      this.notice.set(`Student is now ${nextActive ? 'active' : 'inactive'}.`);
+      await this.loadStudents(this.studentPage());
+      if (this.selectedStudent()?.id === student.id) this.closeStudentDetail();
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to change student status.'));
+    } finally { this.loading.set(false); }
+  }
+
+  async deleteStudent(student: StudentRecord): Promise<void> {
+    if (!window.confirm(`Permanently delete ${student.first_name} ${student.last_name}'s record?`)) {
+      return;
+    }
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.delete(`${this.apiUrl}/admin/students/${student.id}`, { headers: this.authHeaders() }));
+      this.notice.set('Student record deleted.');
+      this.closeStudentDetail();
+      await this.loadStudents(1);
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to delete this student.'));
+    } finally { this.loading.set(false); }
+  }
+
+  startStudentPasswordChange(student: StudentRecord): void {
+    this.studentPasswordTarget.set(student);
+    this.studentPasswordValue = '';
+    this.clearMessages();
+  }
+
+  cancelStudentPasswordChange(): void {
+    this.studentPasswordTarget.set(null);
+    this.studentPasswordValue = '';
+  }
+
+  async updateStudentPassword(): Promise<void> {
+    const target = this.studentPasswordTarget();
+    if (!target || this.studentPasswordValue.length < 8) {
+      this.error.set('Password must be at least 8 characters.');
+      return;
+    }
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.put(`${this.apiUrl}/admin/students/${target.id}/password`, { password: this.studentPasswordValue }, { headers: this.authHeaders() }));
+      this.notice.set(`Password updated for ${target.first_name} ${target.last_name}.`);
+      this.cancelStudentPasswordChange();
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to update this password.'));
     } finally { this.loading.set(false); }
   }
 
@@ -268,12 +881,177 @@ export class Dashboard implements OnInit {
     return age >= 0 ? age : null;
   }
 
+  studentAgeDetail(): string | null {
+    if (!this.studentForm.date_of_birth) return null;
+    const birthDate = new Date(`${this.studentForm.date_of_birth}T00:00:00`);
+    const today = new Date();
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    let days = today.getDate() - birthDate.getDate();
+    if (days < 0) {
+      months -= 1;
+      const previousMonthDays = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+      days += previousMonthDays;
+    }
+    if (months < 0) { years -= 1; months += 12; }
+    return `${years} years, ${months} months, ${days} days`;
+  }
+
   selectedClass(): ClassOption | undefined {
     return this.classOptions().find(option => option.id === this.studentForm.class_option_id);
   }
 
+  filteredTuitionStudents(): StudentRecord[] {
+    const search = this.tuitionStudentSearch.trim().toLowerCase();
+    return this.tuitionStudents().filter(student => {
+      const matchesClass = !this.tuitionStudentClassFilter || student.class_option_id === this.tuitionStudentClassFilter;
+      const matchesSearch = !search || [this.tuitionStudentLabel(student), student.first_name, student.middle_name, student.last_name, student.student_id, student.parent_mobile]
+        .some(value => value?.toLowerCase().includes(search));
+      return matchesClass && matchesSearch;
+    });
+  }
+
+  filterTuitionStudents(): void {
+    if (!this.filteredTuitionStudents().some(student => student.id === this.tuitionForm.student_id)) {
+      this.tuitionForm.student_id = '';
+    }
+  }
+
+  changeTuitionStudentClass(): void {
+    this.tuitionForm.student_id = '';
+    this.tuitionStudentSearch = '';
+    this.tuitionFormError.set('');
+  }
+
+  tuitionStudentLabel(student: StudentRecord): string {
+    return `${student.first_name} ${student.middle_name ? `${student.middle_name} ` : ''}${student.last_name} (${student.student_id})`;
+  }
+
+  selectTuitionStudentFromSearch(): void {
+    const search = this.tuitionStudentSearch.trim().toLowerCase();
+    const matches = this.filteredTuitionStudents();
+    const selectedStudent = matches.find(student => this.tuitionStudentLabel(student).toLowerCase() === search || student.student_id.toLowerCase() === search)
+      ?? (matches.length === 1 ? matches[0] : undefined);
+    this.tuitionForm.student_id = selectedStudent?.id ?? '';
+    if (selectedStudent) {
+      this.tuitionStudentSearch = this.tuitionStudentLabel(selectedStudent);
+      this.updateTuitionDue();
+      this.tuitionFormError.set('');
+    }
+  }
+
+  private emptyStudentForm() {
+    return { first_name: '', middle_name: '', last_name: '', email: '', password: '', parent_mobile: '', mobile: '', address_line1: '', colony: '', city: '', state: '', pin_code: '', blood_group: '', father_name: '', mother_name: '', guardian_one_name: '', guardian_two_name: '', date_of_birth: '', class_option_id: this.classOptions()[0]?.id ?? '' };
+  }
+
+  private emptyTuitionForm() {
+    const today = new Date().toISOString().slice(0, 10);
+    return { student_id: '', fee_year: new Date().getFullYear(), fee_month: new Date().getMonth() + 1, amount_due: '', amount_paid: '', payment_date: today, payment_method: 'cash', payment_reference: '', note: '' };
+  }
+
+  private emptyTuitionBalancePaymentForm(amount = '') {
+    return { amount, payment_date: new Date().toISOString().slice(0, 10), payment_method: 'cash', payment_reference: '', note: '' };
+  }
+
+  private emptyStaffForm() {
+    return { first_name: '', middle_name: '', last_name: '', email: '', password: '', role: (this.isSuperAdmin() ? 'admin' : 'teacher') as StaffRole, mobile: '', address_line1: '', colony: '', city: '', state: '', pin_code: '', blood_group: '' };
+  }
+
+  private missingFields(form: Partial<Record<string, string>>, fields: string[]): string[] {
+    return fields.filter(field => !form[field]?.trim()).map(field => field.replaceAll('_', ' '));
+  }
+
+  fieldError(field: string): string {
+    return this.fieldErrors()[field] ?? this.fieldErrors()[field.replaceAll(' ', '_')] ?? this.fieldErrors()[field.replaceAll('_', ' ')] ?? '';
+  }
+
+  private showFieldErrors(fields: string[], customErrors: Record<string, string> = {}): void {
+    const errors = { ...Object.fromEntries(fields.map(field => [field, `${field.replaceAll('_', ' ')} is required.`])), ...customErrors };
+    this.fieldErrors.set(errors);
+    this.error.set(Object.keys(customErrors).length ? 'Please correct the highlighted field before submitting.' : `Please complete the mandatory field${fields.length > 1 ? 's' : ''} marked below.`);
+  }
+
+  private isValidEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  }
+
+  private setFormError(error: unknown, fallback: string): void {
+    if (error instanceof HttpErrorResponse && Array.isArray(error.error?.detail)) {
+      const errors = Object.fromEntries(error.error.detail.map((item: { loc?: string[]; msg?: string }) => [item.loc?.at(-1)?.replaceAll('_', ' ') ?? 'field', item.msg ?? 'Invalid value.']));
+      this.fieldErrors.set(errors);
+      this.error.set('Please correct the highlighted fields before submitting.');
+      return;
+    }
+    this.error.set(this.errorMessage(error, fallback));
+  }
+
   isSuperAdmin(): boolean {
     return this.user()?.role === 'super_admin';
+  }
+
+  async loadRolePermissions(): Promise<void> {
+    if (!this.isSuperAdmin()) {
+      return;
+    }
+    try {
+      const response = await firstValueFrom(this.http.get<RolePermissionSummary[]>(`${this.apiUrl}/admin/role-permissions`, { headers: this.authHeaders() }));
+      const mapped = Object.fromEntries(response.map(item => [item.role, item]));
+      this.rolePermissions.set(mapped);
+      if (!mapped[this.selectedPermissionRole()]) {
+        this.selectedPermissionRole.set('teacher');
+      }
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to load access settings.'));
+    }
+  }
+
+  getSelectedPermissionSummary(): RolePermissionSummary | undefined {
+    return this.rolePermissions()[this.selectedPermissionRole()];
+  }
+
+  permissionEnabled(role: string, resource: string, action: 'read' | 'create' | 'update' | 'delete'): boolean {
+    const entries = this.rolePermissions()[role]?.permissions ?? [];
+    return entries.some(entry => entry.resource === resource && entry.action === action);
+  }
+
+  togglePermission(role: string, resource: string, action: 'read' | 'create' | 'update' | 'delete'): void {
+    if (!this.isSuperAdmin()) {
+      return;
+    }
+    const current = this.rolePermissions()[role];
+    if (!current) {
+      return;
+    }
+    const permissionSet = new Set(current.permissions.map(item => `${item.resource}:${item.action}`));
+    const key = `${resource}:${action}`;
+    if (permissionSet.has(key)) {
+      permissionSet.delete(key);
+    } else {
+      permissionSet.add(key);
+    }
+    const permissions = Array.from(permissionSet).map(value => {
+      const [entryResource, entryAction] = value.split(':');
+      return { resource: entryResource, action: entryAction as RolePermissionEntry['action'] };
+    }).sort((a, b) => a.resource.localeCompare(b.resource) || a.action.localeCompare(b.action));
+    this.rolePermissions.set({ ...this.rolePermissions(), [role]: { ...current, permissions } });
+  }
+
+  async savePermissions(): Promise<void> {
+    if (!this.isSuperAdmin()) {
+      this.error.set('Only Super Admin can update role access settings.');
+      return;
+    }
+    const role = this.selectedPermissionRole();
+    const permissions = this.rolePermissions()[role]?.permissions ?? [];
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.put<RolePermissionSummary>(`${this.apiUrl}/admin/role-permissions/${role}`, { permissions }, { headers: this.authHeaders() }));
+      this.notice.set(`${role.replace('_', ' ')} permissions updated.`);
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to save role access settings.'));
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   isProtectedAccount(member: UserRecord): boolean {
@@ -281,7 +1059,9 @@ export class Dashboard implements OnInit {
   }
 
   startStaffForm(): void {
-    this.staffForm = { name: '', email: '', password: '', role: this.isSuperAdmin() ? 'admin' : 'teacher' };
+    this.editingStaffId.set(null);
+    this.staffForm = this.emptyStaffForm();
+    this.staffFormOpen.set(true);
     this.activeView.set('staff');
     this.clearMessages();
   }
@@ -291,17 +1071,46 @@ export class Dashboard implements OnInit {
       this.error.set('Only super admins and admins can create staff accounts.');
       return;
     }
+    const missing = this.missingFields(this.staffForm, ['first_name', 'email', 'mobile', 'address_line1', 'colony', 'city', 'state', 'pin_code', 'role']);
+    if (!this.editingStaffId() && !this.staffForm.password.trim()) missing.push('password');
+    if (missing.length) {
+      this.showFieldErrors(missing);
+      return;
+    }
+    if (!this.isValidEmail(this.staffForm.email)) {
+      this.showFieldErrors([], { email: 'Enter a valid email address, for example name@example.com.' });
+      return;
+    }
     this.setBusy();
     try {
-      await firstValueFrom(this.http.post<UserRecord>(`${this.apiUrl}/admin/users`, this.staffForm, { headers: this.authHeaders() }));
-      this.notice.set(`${this.staffForm.role} account created.`);
-      this.staffForm = { name: '', email: '', password: '', role: this.isSuperAdmin() ? 'admin' : 'teacher' };
+      const id = this.editingStaffId();
+      const profilePayload = { ...this.staffForm, blood_group: this.staffForm.blood_group || null };
+      if (id) {
+        const { password: _password, ...profile } = profilePayload;
+        await firstValueFrom(this.http.put<UserRecord>(`${this.apiUrl}/admin/users/${id}`, profile, { headers: this.authHeaders() }));
+      } else {
+        await firstValueFrom(this.http.post<UserRecord>(`${this.apiUrl}/admin/users`, profilePayload, { headers: this.authHeaders() }));
+      }
+      this.notice.set(id ? 'Staff details updated.' : `${this.staffForm.role} account created.`);
+      this.staffForm = this.emptyStaffForm();
+      this.editingStaffId.set(null);
+      this.staffFormOpen.set(false);
       await this.loadUsers(1);
     } catch (error) {
-      this.error.set(this.errorMessage(error, 'Unable to create this staff account.'));
+      this.error.set(this.errorMessage(error, this.editingStaffId() ? 'Unable to update this staff account.' : 'Unable to create this staff account.'));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  viewStaff(member: UserRecord): void { this.selectedStaff.set(member); }
+
+  editStaff(member: UserRecord): void {
+    this.editingStaffId.set(member.id);
+    this.staffForm = { first_name: member.first_name, middle_name: member.middle_name ?? '', last_name: member.last_name, email: member.email, password: '', role: member.role as StaffRole, mobile: member.mobile, address_line1: member.address_line1, colony: member.colony, city: member.city, state: member.state, pin_code: member.pin_code, blood_group: member.blood_group ?? '' };
+    this.selectedStaff.set(null);
+    this.staffFormOpen.set(true);
+    this.activeView.set('staff');
   }
 
   async searchStaff(): Promise<void> {
@@ -568,8 +1377,16 @@ export class Dashboard implements OnInit {
 
   private async loadClasses(): Promise<void> {
     try {
-      this.classOptions.set(await firstValueFrom(this.http.get<ClassOption[]>(`${this.apiUrl}/admin/classes`, { headers: this.authHeaders() })));
+      const classOptions = await firstValueFrom(this.http.get<ClassOption[]>(`${this.apiUrl}/admin/classes`, { headers: this.authHeaders() }));
+      this.classOptions.set(classOptions);
     } catch { this.classOptions.set([]); }
+  }
+
+  private async loadClassTuitions(feeYear?: number): Promise<void> {
+    try {
+      const params = feeYear ? { fee_year: feeYear } : undefined;
+      this.classTuitions.set(await firstValueFrom(this.http.get<ClassTuition[]>(`${this.apiUrl}/admin/classes/tuition`, { headers: this.authHeaders(), params })));
+    } catch { this.classTuitions.set([]); }
   }
 
   private async loadAttendanceStudents(): Promise<void> {
@@ -578,10 +1395,49 @@ export class Dashboard implements OnInit {
     } catch { this.attendanceStudents.set([]); }
   }
 
-  private async loadStudents(): Promise<void> {
+  private async loadStudents(page = this.studentPage()): Promise<void> {
     try {
-      this.students.set(await firstValueFrom(this.http.get<StudentRecord[]>(`${this.apiUrl}/admin/students`, { headers: this.authHeaders() })));
-    } catch { this.students.set([]); }
+      const params: Record<string, string | number> = { page, page_size: 10 };
+      if (this.studentSearch.trim()) params['search'] = this.studentSearch.trim();
+      if (this.studentClassFilter) params['class_option_id'] = this.studentClassFilter;
+      const response = await firstValueFrom(this.http.get<{ items: StudentRecord[]; page: number; total: number; total_pages: number }>(`${this.apiUrl}/admin/students`, {
+        headers: this.authHeaders(),
+        params
+      }));
+      this.students.set(response.items);
+      this.studentPage.set(response.page);
+      this.studentTotal.set(response.total);
+      this.studentTotalPages.set(response.total_pages);
+    } catch {
+      this.students.set([]);
+    }
+  }
+
+  private async loadTuitionStudents(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.http.get<{ items: StudentRecord[] }>(`${this.apiUrl}/admin/students`, { headers: this.authHeaders(), params: { page: 1, page_size: 100 } }));
+      this.tuitionStudents.set(response.items);
+    } catch {
+      this.tuitionStudents.set([]);
+    }
+  }
+
+  private async downloadFile(url: string, fileName: string, params?: HttpParams): Promise<void> {
+    try {
+      const blob = await firstValueFrom(this.http.get(url, { headers: this.authHeaders(), params, responseType: 'blob' }));
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = fileName;
+      anchor.click();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to download the requested file.'));
+    }
+  }
+
+  private async loadHolidays(): Promise<void> {
+    try { this.holidays.set(await firstValueFrom(this.http.get<Holiday[]>(`${this.apiUrl}/holidays`, { headers: this.authHeaders() }))); } catch { this.holidays.set([]); }
   }
 
   private authHeaders(): HttpHeaders {
@@ -596,6 +1452,7 @@ export class Dashboard implements OnInit {
   private clearMessages(): void {
     this.error.set('');
     this.notice.set('');
+    this.fieldErrors.set({});
   }
 
   private emptyContentForm() {
@@ -613,8 +1470,16 @@ export class Dashboard implements OnInit {
   }
 
   private errorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse && error.status === 405) {
+      return 'Update is not available on the running API. Restart the Tiny Tara API server and try again.';
+    }
     if (error instanceof HttpErrorResponse && typeof error.error?.detail === 'string') {
       return error.error.detail;
+    }
+    if (error instanceof HttpErrorResponse && Array.isArray(error.error?.detail)) {
+      return error.error.detail
+        .map((item: { loc?: string[]; msg?: string }) => `${item.loc?.at(-1)?.replaceAll('_', ' ') ?? 'Field'}: ${item.msg ?? 'Invalid value'}`)
+        .join(' ');
     }
     return fallback;
   }
