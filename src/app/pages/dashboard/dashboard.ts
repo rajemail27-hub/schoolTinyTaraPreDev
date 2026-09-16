@@ -64,13 +64,17 @@ interface UserRecord {
 }
 
 interface ClassOption { id: string; name: string; min_age: number; max_age: number; monthly_tuition: string; display_order: number; is_active: boolean; }
-interface StudentRecord { id: string; student_id: string; user_id: string; first_name: string; middle_name: string | null; last_name: string; email: string; parent_mobile: string; mobile: string; address_line1: string; colony: string; city: string; state: string; pin_code: string; blood_group: string | null; father_name: string | null; mother_name: string | null; guardian_one_name: string | null; guardian_two_name: string | null; date_of_birth: string; age: number; age_detail: string; class_option_id: string; class_option: ClassOption; status: string; }
+interface ClassSection { id: string; class_option_id: string; name: string; display_order: number; is_active: boolean; }
+interface StudentRecord { id: string; student_id: string; user_id: string; first_name: string; middle_name: string | null; last_name: string; email: string; parent_mobile: string; mobile: string; address_line1: string; colony: string; city: string; state: string; pin_code: string; blood_group: string | null; father_name: string | null; mother_name: string | null; guardian_one_name: string | null; guardian_two_name: string | null; date_of_birth: string; age: number; age_detail: string; class_option_id: string; class_option: ClassOption; section_id: string | null; section: ClassSection | null; status: string; }
 interface AttendancePunch { id: string; student_id: string; student_name: string; class_name: string; parent_mobile: string; direction: string; punched_at: string; }
 interface PunchHistoryRow { id: string; student_name: string; student_id: string; email: string; class_name: string; direction: string; punched_at: string; }
 interface PunchHistoryResponse { items: PunchHistoryRow[]; page: number; page_size: number; total: number; total_pages: number; }
-interface DailyAttendanceRow { student_id: string; student_name: string; student_code: string; attendance_date: string; status: 'present' | 'absent' | 'late' | 'leave' | 'holiday' | null; note: string | null; }
+interface DailyAttendanceRow { student_id: string; student_name: string; student_code: string; class_name: string; section_name: string | null; attendance_date: string; status: 'present' | 'absent' | 'late' | 'leave' | 'holiday' | null; note: string | null; }
 interface Holiday { id: string; holiday_date: string; name: string; }
-interface TuitionFee { id: string | null; receipt_number: string | null; student_id: string; student_code: string; student_name: string; email: string; parent_mobile: string; class_name: string; fee_year: number; fee_month: number; amount_due: string; amount_paid: string; balance_due: string; payment_date: string | null; payment_method: string | null; payment_reference: string | null; note: string | null; recorded_at: string | null; status: 'not_recorded' | 'partially_paid' | 'paid'; }
+interface MyAttendanceRow { attendance_date: string; status: 'present' | 'absent' | 'late' | 'leave' | 'holiday' | null; note: string | null; is_holiday: boolean; }
+interface MyPunchRow { id: string; direction: string; punched_at: string; }
+interface DiaryEntry { id: string; class_option_id: string; class_name: string; section_id: string | null; section_name: string | null; student_id: string | null; student_name: string | null; entry_date: string; teacher_id: string; teacher_name: string; task_details: string | null; remarks: string | null; book_names: string | null; syllabus_topic: string | null; holiday_task: string | null; created_at: string; updated_at: string; }
+interface TuitionFee { id: string | null; receipt_number: string | null; student_id: string; student_code: string; student_name: string; email: string; parent_mobile: string; class_name: string; section_name: string | null; fee_year: number; fee_month: number; amount_due: string; amount_paid: string; balance_due: string; payment_date: string | null; payment_method: string | null; payment_reference: string | null; note: string | null; recorded_at: string | null; status: 'not_recorded' | 'partially_paid' | 'paid'; }
 interface TuitionReport { items: TuitionFee[]; page: number; page_size: number; total: number; total_pages: number; total_due: string; total_paid: string; total_balance: string; }
 interface ClassTuition { id: string; class_option_id: string; fee_year: number; amount: string; }
 
@@ -78,7 +82,7 @@ interface RolePermissionEntry { resource: string; action: 'read' | 'create' | 'u
 interface RolePermissionSummary { role: string; permissions: RolePermissionEntry[]; }
 
 type StaffRole = 'admin' | 'teacher' | 'clerk' | 'security';
-type DashboardView = 'overview' | 'pages' | 'contact' | 'gallery' | 'staff' | 'students' | 'classes' | 'holidays' | 'attendance' | 'punch-attendance' | 'tuition' | 'profile' | 'permissions';
+type DashboardView = 'overview' | 'pages' | 'contact' | 'gallery' | 'staff' | 'students' | 'classes' | 'holidays' | 'attendance' | 'punch-attendance' | 'tuition' | 'profile' | 'permissions' | 'my-dashboard';
 
 @Component({
   selector: 'app-dashboard',
@@ -116,9 +120,20 @@ export class Dashboard implements OnInit {
   readonly dailyAttendance = signal<DailyAttendanceRow[]>([]);
   readonly holidays = signal<Holiday[]>([]);
   readonly editingHolidayId = signal<string | null>(null);
+  readonly myStudent = signal<StudentRecord | null>(null);
+  readonly myAttendance = signal<MyAttendanceRow[]>([]);
+  readonly myPunches = signal<MyPunchRow[]>([]);
+  readonly myDiaryEntries = signal<DiaryEntry[]>([]);
+  myDiaryDate = new Date().toISOString().slice(0, 10);
+  readonly sectionsClassId = signal<string>('');
+  readonly classSections = signal<ClassSection[]>([]);
+  readonly editingSectionId = signal<string | null>(null);
+  readonly attendanceFilterSections = signal<ClassSection[]>([]);
+  readonly studentFormSections = signal<ClassSection[]>([]);
   readonly rolePermissions = signal<Record<string, RolePermissionSummary>>({});
+  readonly permissionsLoaded = signal(false);
   readonly selectedPermissionRole = signal<string>('teacher');
-  readonly permissionResources = signal<string[]>(['users', 'students', 'classes', 'site_content', 'page_content', 'gallery', 'attendance', 'holidays', 'syllabus', 'access_punches', 'tuition_fees']);
+  readonly permissionResources = signal<string[]>(['users', 'students', 'classes', 'site_content', 'page_content', 'gallery', 'attendance', 'holidays', 'syllabus', 'diary', 'access_punches', 'tuition_fees']);
   readonly permissionActions = signal<Array<'read' | 'create' | 'update' | 'delete'>>(['read', 'create', 'update', 'delete']);
   readonly studentTotal = signal(0);
   readonly studentPage = signal(1);
@@ -160,9 +175,13 @@ export class Dashboard implements OnInit {
     punchDate = new Date().toISOString().slice(0, 10);
     punchSearch = '';
     punchClassId = '';
+    punchPendingCheckoutOnly = false;
   attendanceDate = new Date().toISOString().slice(0, 10);
+  attendanceClassFilter = '';
+  attendanceSectionFilter = '';
   attendanceNote: Record<string, string> = {};
   holidayForm = { holiday_date: '', name: '' };
+  sectionForm = { name: '', display_order: 0 };
   tuitionSearch = '';
   tuitionClassFilter = '';
   tuitionMonth = new Date().getMonth() + 1;
@@ -243,14 +262,19 @@ export class Dashboard implements OnInit {
       const headers = this.authHeaders();
       const profile = await firstValueFrom(this.http.get<UserProfile>(`${this.apiUrl}/auth/me`, { headers }));
       this.user.set(profile);
+      await this.loadMyPermissions();
       if (profile.role === 'teacher') {
         this.activeView.set('overview');
+      } else if (profile.role === 'student') {
+        this.activeView.set('my-dashboard');
       }
       this.profileName = profile.name;
       if (this.isTeacher()) {
-        await Promise.all([this.loadUsers(), this.loadStudents(), this.loadDailyAttendance(), this.loadHolidays()]);
+        await Promise.all([this.loadUsers(), this.loadStudents(), this.loadClasses(), this.loadDailyAttendance(), this.loadHolidays()]);
       } else if (profile.role === 'security') {
         await Promise.all([this.loadAttendanceStudents(), this.loadPunchHistory()]);
+      } else if (profile.role === 'student') {
+        await this.loadMyDashboard();
       } else {
         await Promise.all([this.loadPageContents(), this.loadSiteContent(), this.loadUsers(), this.loadClasses(), this.loadAttendanceStudents(), this.loadDailyAttendance(), this.loadStudents(), this.loadHolidays()]);
       }
@@ -263,7 +287,7 @@ export class Dashboard implements OnInit {
   }
 
   async navigateTo(view: DashboardView): Promise<void> {
-    if (this.isTeacher() && !['overview', 'attendance', 'profile', 'holidays'].includes(view)) {
+    if (!this.canView(view)) {
       return;
     }
     this.clearMessages();
@@ -275,9 +299,14 @@ export class Dashboard implements OnInit {
     } else if (view === 'students') {
       await this.loadStudents(1);
     } else if (view === 'attendance') {
+      this.attendanceClassFilter = '';
+      this.attendanceSectionFilter = '';
+      this.attendanceFilterSections.set([]);
       await Promise.all([this.loadDailyAttendance(), this.loadHolidays()]);
     } else if (view === 'punch-attendance') {
       await Promise.all([this.loadAttendanceStudents(), this.loadPunchHistory()]);
+    } else if (view === 'my-dashboard') {
+      await this.loadMyDashboard();
     } else if (view === 'tuition') {
       await Promise.all([this.loadTuitionStudents(), this.loadTuitionReport(), this.loadClassTuitions()]);
     } else if (view === 'classes') {
@@ -329,27 +358,29 @@ export class Dashboard implements OnInit {
   }
 
   canManageStaff(): boolean {
-    return this.user()?.role === 'super_admin' || this.user()?.role === 'admin';
+    return this.can('users', 'create');
   }
 
-  canManageStudents(): boolean {
-    return ['super_admin', 'admin', 'clerk'].includes(this.user()?.role ?? '');
-  }
+  canViewStaff(): boolean { return this.can('users', 'read'); }
+
+  canViewStudents(): boolean { return this.can('students', 'read'); }
+
+  canManageStudents(): boolean { return this.can('students', 'create') || this.can('students', 'update') || this.can('students', 'delete'); }
 
   canRecordAttendance(): boolean {
-    return ['super_admin', 'admin', 'clerk', 'teacher'].includes(this.user()?.role ?? '');
+    return this.can('attendance', 'create');
   }
 
   canManageClassAttendance(): boolean {
-    return ['super_admin', 'admin', 'clerk', 'teacher'].includes(this.user()?.role ?? '');
+    return this.can('attendance', 'read');
   }
 
   canManagePunchAttendance(): boolean {
-    return ['super_admin', 'admin', 'clerk', 'security'].includes(this.user()?.role ?? '');
+    return this.can('access_punches', 'read');
   }
 
   canManageTuition(): boolean {
-    return ['super_admin', 'admin', 'clerk'].includes(this.user()?.role ?? '');
+    return this.can('tuition_fees', 'read');
   }
 
   async loadTuitionReport(): Promise<void> {
@@ -365,6 +396,7 @@ export class Dashboard implements OnInit {
   }
 
   async recordTuitionFee(): Promise<void> {
+    if (!this.can('tuition_fees', 'create')) return this.denyPermission();
     this.selectTuitionStudentFromSearch();
     if (!this.tuitionForm.student_id || !this.tuitionForm.amount_due) {
       this.tuitionFormError.set('Select a student with a configured class fee.');
@@ -410,6 +442,7 @@ export class Dashboard implements OnInit {
   }
 
   async collectTuitionBalance(): Promise<void> {
+    if (!this.can('tuition_fees', 'create')) return this.denyPermission();
     const fee = this.tuitionBalancePaymentTarget();
     const amount = Number(this.tuitionBalancePaymentForm.amount);
     if (!fee || !Number.isFinite(amount) || amount <= 0 || amount > Number(fee.balance_due)) {
@@ -469,6 +502,7 @@ export class Dashboard implements OnInit {
   }
 
   async saveClassTuition(): Promise<void> {
+    if (!this.can('classes', this.editingClassTuitionId() ? 'update' : 'create')) return this.denyPermission();
     const amount = Number(this.classTuitionForm.amount);
     const classOption = this.classOptions().find(item => item.id === this.classTuitionForm.class_option_id);
     if (!classOption || !Number.isFinite(amount) || amount <= 0) {
@@ -495,6 +529,7 @@ export class Dashboard implements OnInit {
   }
 
   async createClass(): Promise<void> {
+    if (!this.can('classes', this.editingClassId() ? 'update' : 'create')) return this.denyPermission();
     if (this.classForm.min_age > this.classForm.max_age) {
       this.error.set('Minimum age cannot exceed maximum age.');
       return;
@@ -582,11 +617,50 @@ export class Dashboard implements OnInit {
 
   isTeacher(): boolean { return this.user()?.role === 'teacher'; }
 
-  canManageClasses(): boolean { return ['super_admin', 'admin'].includes(this.user()?.role ?? ''); }
+  isStudent(): boolean { return this.user()?.role === 'student'; }
 
-  canViewHolidays(): boolean { return ['super_admin', 'admin', 'clerk', 'teacher'].includes(this.user()?.role ?? ''); }
+  today(): string { return new Date().toISOString().slice(0, 10); }
 
-  canManageHolidays(): boolean { return ['super_admin', 'admin', 'clerk'].includes(this.user()?.role ?? ''); }
+  async loadMyDashboard(): Promise<void> {
+    try {
+      this.myStudent.set(await firstValueFrom(this.http.get<StudentRecord>(`${this.apiUrl}/students/me`, { headers: this.authHeaders() })));
+    } catch { this.myStudent.set(null); }
+    const today = new Date();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+    const todayStr = today.toISOString().slice(0, 10);
+    try {
+      const params = new HttpParams().set('from_date', monthStart).set('to_date', todayStr);
+      this.myAttendance.set(await firstValueFrom(this.http.get<MyAttendanceRow[]>(`${this.apiUrl}/attendance/me`, { headers: this.authHeaders(), params })));
+    } catch { this.myAttendance.set([]); }
+    try {
+      const params = new HttpParams().set('punched_date', todayStr);
+      this.myPunches.set(await firstValueFrom(this.http.get<MyPunchRow[]>(`${this.apiUrl}/access-punches/me`, { headers: this.authHeaders(), params })));
+    } catch { this.myPunches.set([]); }
+    await this.loadHolidays();
+    await this.loadMyDiary();
+  }
+
+  async loadMyDiary(): Promise<void> {
+    try {
+      const params = new HttpParams().set('entry_date', this.myDiaryDate);
+      this.myDiaryEntries.set(await firstValueFrom(this.http.get<DiaryEntry[]>(`${this.apiUrl}/diary/me`, { headers: this.authHeaders(), params })));
+    } catch { this.myDiaryEntries.set([]); }
+  }
+
+  async changeMyDiaryDate(value: string): Promise<void> {
+    this.myDiaryDate = value;
+    await this.loadMyDiary();
+  }
+
+  myAttendancePresentCount(): number {
+    return this.myAttendance().filter(row => row.status === 'present' || row.status === 'late').length;
+  }
+
+  canManageClasses(): boolean { return this.can('classes', 'read'); }
+
+  canViewHolidays(): boolean { return this.can('holidays', 'read'); }
+
+  canManageHolidays(): boolean { return this.can('holidays', 'create'); }
 
   punchClasses(): ClassOption[] {
     const classes = new Map(this.attendanceStudents().map(student => [student.class_option.id, student.class_option]));
@@ -599,6 +673,7 @@ export class Dashboard implements OnInit {
     if (this.punchDate) params = params.set('punched_date', this.punchDate);
     if (this.punchSearch.trim()) params = params.set('search', this.punchSearch.trim());
     if (this.punchClassId) params = params.set('class_option_id', this.punchClassId);
+    if (this.punchPendingCheckoutOnly) params = params.set('pending_checkout', 'true');
     params = params.set('page', this.punchHistoryPage());
     params = params.set('page_size', 10);
     try {
@@ -616,6 +691,13 @@ export class Dashboard implements OnInit {
     this.punchDate = '';
     this.punchSearch = '';
     this.punchClassId = '';
+    this.punchPendingCheckoutOnly = false;
+    this.punchHistoryPage.set(1);
+    void this.loadPunchHistory();
+  }
+
+  togglePendingCheckoutFilter(value: boolean): void {
+    this.punchPendingCheckoutOnly = value;
     this.punchHistoryPage.set(1);
     void this.loadPunchHistory();
   }
@@ -667,7 +749,10 @@ export class Dashboard implements OnInit {
 
   async loadDailyAttendance(): Promise<void> {
     try {
-      this.dailyAttendance.set(await firstValueFrom(this.http.get<DailyAttendanceRow[]>(`${this.apiUrl}/attendance/daily`, { headers: this.authHeaders(), params: { attendance_date: this.attendanceDate } })));
+      let params = new HttpParams().set('attendance_date', this.attendanceDate);
+      if (this.attendanceClassFilter) params = params.set('class_option_id', this.attendanceClassFilter);
+      if (this.attendanceSectionFilter) params = params.set('section_id', this.attendanceSectionFilter);
+      this.dailyAttendance.set(await firstValueFrom(this.http.get<DailyAttendanceRow[]>(`${this.apiUrl}/attendance/daily`, { headers: this.authHeaders(), params })));
     } catch (error) { this.error.set(this.errorMessage(error, 'Unable to load daily attendance.')); }
   }
 
@@ -676,11 +761,24 @@ export class Dashboard implements OnInit {
     await this.loadDailyAttendance();
   }
 
+  async changeAttendanceClassFilter(classOptionId: string): Promise<void> {
+    this.attendanceClassFilter = classOptionId;
+    this.attendanceSectionFilter = '';
+    this.attendanceFilterSections.set(classOptionId ? await this.fetchClassSections(classOptionId) : []);
+    await this.loadDailyAttendance();
+  }
+
+  async changeAttendanceSectionFilter(sectionId: string): Promise<void> {
+    this.attendanceSectionFilter = sectionId;
+    await this.loadDailyAttendance();
+  }
+
   isAttendanceToday(): boolean { return this.attendanceDate === new Date().toISOString().slice(0, 10); }
 
   selectedHoliday(): Holiday | undefined { return this.holidays().find(holiday => holiday.holiday_date === this.attendanceDate); }
 
   async saveDailyAttendance(row: DailyAttendanceRow, status: string): Promise<void> {
+    if (!this.can('attendance', 'create')) return this.denyPermission();
     if (!status || row.status === 'holiday') return;
     try {
       await firstValueFrom(this.http.put(`${this.apiUrl}/attendance/daily`, { student_id: row.student_id, attendance_date: this.attendanceDate, status, note: this.attendanceNote[row.student_id] || null }, { headers: this.authHeaders() }));
@@ -691,6 +789,7 @@ export class Dashboard implements OnInit {
   }
 
   async addHoliday(): Promise<void> {
+    if (!this.can('holidays', this.editingHolidayId() ? 'update' : 'create')) return this.denyPermission();
     if (!this.holidayForm.holiday_date || !this.holidayForm.name.trim()) {
       this.error.set('Enter a holiday date and name.');
       return;
@@ -722,6 +821,7 @@ export class Dashboard implements OnInit {
   }
 
   async deleteHoliday(holiday: Holiday): Promise<void> {
+    if (!this.can('holidays', 'delete')) return this.denyPermission();
     if (!window.confirm(`Delete ${holiday.name} on ${holiday.holiday_date}?`)) return;
     this.setBusy();
     try {
@@ -736,12 +836,14 @@ export class Dashboard implements OnInit {
   startStudentForm(): void {
     this.editingStudentId.set(null);
     this.studentForm = this.emptyStudentForm();
+    this.studentFormSections.set([]);
     this.studentFormOpen.set(true);
     this.activeView.set('students');
     this.clearMessages();
   }
 
   async createStudent(): Promise<void> {
+    if (!this.can('students', this.editingStudentId() ? 'update' : 'create')) return this.denyPermission();
     const missing = this.missingFields(this.studentForm, ['first_name', 'email', 'parent_mobile', 'address_line1', 'colony', 'city', 'state', 'pin_code', 'date_of_birth', 'class_option_id', 'guardian_one_name']);
     if (!this.editingStudentId() && !this.studentForm.password.trim()) missing.push('password');
     if (missing.length) {
@@ -760,8 +862,8 @@ export class Dashboard implements OnInit {
     try {
       const id = this.editingStudentId();
       const payload = id
-        ? (({ password: _password, ...profile }) => ({ ...profile, mobile: this.studentForm.parent_mobile, blood_group: this.studentForm.blood_group || null }))(this.studentForm)
-        : { ...this.studentForm, mobile: this.studentForm.parent_mobile, blood_group: this.studentForm.blood_group || null };
+        ? (({ password: _password, ...profile }) => ({ ...profile, mobile: this.studentForm.parent_mobile, blood_group: this.studentForm.blood_group || null, section_id: this.studentForm.section_id || null }))(this.studentForm)
+        : { ...this.studentForm, mobile: this.studentForm.parent_mobile, blood_group: this.studentForm.blood_group || null, section_id: this.studentForm.section_id || null };
       const request = id
         ? this.http.put(`${this.apiUrl}/admin/students/${id}`, payload, { headers: this.authHeaders() })
         : this.http.post(`${this.apiUrl}/admin/students`, payload, { headers: this.authHeaders() });
@@ -803,10 +905,11 @@ export class Dashboard implements OnInit {
 
   editStudent(student: StudentRecord): void {
     this.editingStudentId.set(student.id);
-    this.studentForm = { first_name: student.first_name, middle_name: student.middle_name ?? '', last_name: student.last_name, email: student.email, password: '', parent_mobile: student.parent_mobile, mobile: student.parent_mobile, address_line1: student.address_line1, colony: student.colony, city: student.city, state: student.state, pin_code: student.pin_code, blood_group: student.blood_group ?? '', father_name: student.father_name ?? '', mother_name: student.mother_name ?? '', guardian_one_name: student.guardian_one_name ?? '', guardian_two_name: student.guardian_two_name ?? '', date_of_birth: student.date_of_birth, class_option_id: student.class_option_id };
+    this.studentForm = { first_name: student.first_name, middle_name: student.middle_name ?? '', last_name: student.last_name, email: student.email, password: '', parent_mobile: student.parent_mobile, mobile: student.parent_mobile, address_line1: student.address_line1, colony: student.colony, city: student.city, state: student.state, pin_code: student.pin_code, blood_group: student.blood_group ?? '', father_name: student.father_name ?? '', mother_name: student.mother_name ?? '', guardian_one_name: student.guardian_one_name ?? '', guardian_two_name: student.guardian_two_name ?? '', date_of_birth: student.date_of_birth, class_option_id: student.class_option_id, section_id: student.section_id ?? '' };
     this.studentFormOpen.set(true);
     this.selectedStudent.set(null);
     this.activeView.set('students');
+    void this.fetchClassSections(student.class_option_id).then(sections => this.studentFormSections.set(sections));
   }
 
   closeStudentDetail(): void {
@@ -814,6 +917,7 @@ export class Dashboard implements OnInit {
   }
 
   async toggleStudentStatus(student: StudentRecord): Promise<void> {
+    if (!this.can('students', 'update')) return this.denyPermission();
     const nextActive = student.status !== 'active';
     if (!window.confirm(`${nextActive ? 'Activate' : 'Deactivate'} ${student.first_name} ${student.last_name}'s account?`)) {
       return;
@@ -830,6 +934,7 @@ export class Dashboard implements OnInit {
   }
 
   async deleteStudent(student: StudentRecord): Promise<void> {
+    if (!this.can('students', 'delete')) return this.denyPermission();
     if (!window.confirm(`Permanently delete ${student.first_name} ${student.last_name}'s record?`)) {
       return;
     }
@@ -856,6 +961,7 @@ export class Dashboard implements OnInit {
   }
 
   async updateStudentPassword(): Promise<void> {
+    if (!this.can('students', 'update')) return this.denyPermission();
     const target = this.studentPasswordTarget();
     if (!target || this.studentPasswordValue.length < 8) {
       this.error.set('Password must be at least 8 characters.');
@@ -941,7 +1047,7 @@ export class Dashboard implements OnInit {
   }
 
   private emptyStudentForm() {
-    return { first_name: '', middle_name: '', last_name: '', email: '', password: '', parent_mobile: '', mobile: '', address_line1: '', colony: '', city: '', state: '', pin_code: '', blood_group: '', father_name: '', mother_name: '', guardian_one_name: '', guardian_two_name: '', date_of_birth: '', class_option_id: this.classOptions()[0]?.id ?? '' };
+    return { first_name: '', middle_name: '', last_name: '', email: '', password: '', parent_mobile: '', mobile: '', address_line1: '', colony: '', city: '', state: '', pin_code: '', blood_group: '', father_name: '', mother_name: '', guardian_one_name: '', guardian_two_name: '', date_of_birth: '', class_option_id: this.classOptions()[0]?.id ?? '', section_id: '' };
   }
 
   private emptyTuitionForm() {
@@ -987,6 +1093,38 @@ export class Dashboard implements OnInit {
 
   isSuperAdmin(): boolean {
     return this.user()?.role === 'super_admin';
+  }
+
+  can(resource: string, action: 'read' | 'create' | 'update' | 'delete'): boolean {
+    if (this.isSuperAdmin()) return true;
+    return this.permissionsLoaded() && this.permissionEnabled(this.user()?.role ?? '', resource, action);
+  }
+
+  denyPermission(): void {
+    this.error.set('You do not have permission to perform this action.');
+  }
+
+  canView(view: DashboardView): boolean {
+    if (view === 'overview' || view === 'profile' || view === 'my-dashboard') return true;
+    if (view === 'permissions') return this.isSuperAdmin();
+    const resources: Partial<Record<DashboardView, string>> = {
+      pages: 'page_content', contact: 'site_content', gallery: 'gallery', holidays: 'holidays',
+      'punch-attendance': 'access_punches', attendance: 'attendance', tuition: 'tuition_fees',
+      classes: 'classes', staff: 'users', students: 'students'
+    };
+    const resource = resources[view];
+    return !!resource && this.can(resource, 'read');
+  }
+
+  async loadMyPermissions(): Promise<void> {
+    try {
+      const summary = await firstValueFrom(this.http.get<RolePermissionSummary>(`${this.apiUrl}/admin/my-permissions`, { headers: this.authHeaders() }));
+      this.rolePermissions.set({ [summary.role]: summary });
+      this.permissionsLoaded.set(true);
+    } catch (error) {
+      this.permissionsLoaded.set(false);
+      throw error;
+    }
   }
 
   async loadRolePermissions(): Promise<void> {
@@ -1067,6 +1205,7 @@ export class Dashboard implements OnInit {
   }
 
   async createStaffAccount(): Promise<void> {
+    if (!this.can('users', this.editingStaffId() ? 'update' : 'create')) return this.denyPermission();
     if (!this.canManageStaff()) {
       this.error.set('Only super admins and admins can create staff accounts.');
       return;
@@ -1151,6 +1290,7 @@ export class Dashboard implements OnInit {
   }
 
   async updateUserPassword(): Promise<void> {
+    if (!this.can('users', 'update')) return this.denyPermission();
     const target = this.passwordTarget();
     if (!target || this.passwordValue.length < 8) {
       this.error.set('Password must be at least 8 characters.');
@@ -1169,6 +1309,7 @@ export class Dashboard implements OnInit {
   }
 
   async toggleAccount(member: UserRecord): Promise<void> {
+    if (!this.can('users', 'update')) return this.denyPermission();
     if (member.id === this.user()?.id) {
       this.error.set('You cannot deactivate your own account.');
       return;
@@ -1190,6 +1331,7 @@ export class Dashboard implements OnInit {
   }
 
   async deleteAccount(member: UserRecord): Promise<void> {
+    if (!this.can('users', 'delete')) return this.denyPermission();
     if (member.id === this.user()?.id) {
       this.error.set('You cannot delete your own account.');
       return;
@@ -1234,6 +1376,7 @@ export class Dashboard implements OnInit {
   }
 
   async saveContent(): Promise<void> {
+    if (!this.can('page_content', this.editingContentId() ? 'update' : 'create')) return this.denyPermission();
     this.setBusy();
     try {
       const headers = this.authHeaders();
@@ -1264,6 +1407,7 @@ export class Dashboard implements OnInit {
   }
 
   async deleteContent(content: PageContent): Promise<void> {
+    if (!this.can('page_content', 'delete')) return this.denyPermission();
     if (!window.confirm(`Delete the ${content.section_name} section?`)) {
       return;
     }
@@ -1280,6 +1424,7 @@ export class Dashboard implements OnInit {
   }
 
   async saveSiteContent(): Promise<void> {
+    if (!this.can('site_content', 'update')) return this.denyPermission();
     this.setBusy();
     try {
       await firstValueFrom(this.http.put<SiteContent>(`${this.apiUrl}/admin/site-content`, this.siteContent(), { headers: this.authHeaders() }));
@@ -1301,6 +1446,7 @@ export class Dashboard implements OnInit {
   }
 
   async uploadGallery(): Promise<void> {
+    if (!this.can('gallery', 'create')) return this.denyPermission();
     if (!this.galleryFile) {
       this.error.set('Choose an image before uploading.');
       return;
@@ -1380,6 +1526,62 @@ export class Dashboard implements OnInit {
       const classOptions = await firstValueFrom(this.http.get<ClassOption[]>(`${this.apiUrl}/admin/classes`, { headers: this.authHeaders() }));
       this.classOptions.set(classOptions);
     } catch { this.classOptions.set([]); }
+  }
+
+  private async fetchClassSections(classOptionId: string): Promise<ClassSection[]> {
+    try {
+      return await firstValueFrom(this.http.get<ClassSection[]>(`${this.apiUrl}/admin/classes/${classOptionId}/sections`, { headers: this.authHeaders() }));
+    } catch { return []; }
+  }
+
+  async selectSectionsClass(classOptionId: string): Promise<void> {
+    this.sectionsClassId.set(classOptionId);
+    this.editingSectionId.set(null);
+    this.sectionForm = { name: '', display_order: 0 };
+    this.classSections.set(classOptionId ? await this.fetchClassSections(classOptionId) : []);
+  }
+
+  async saveSection(): Promise<void> {
+    if (!this.can('classes', this.editingSectionId() ? 'update' : 'create')) return this.denyPermission();
+    const classOptionId = this.sectionsClassId();
+    if (!classOptionId || !this.sectionForm.name.trim()) {
+      this.error.set('Select a class and enter a section name.');
+      return;
+    }
+    this.setBusy();
+    try {
+      const sectionId = this.editingSectionId();
+      const request = sectionId
+        ? this.http.put<ClassSection>(`${this.apiUrl}/admin/classes/${classOptionId}/sections/${sectionId}`, this.sectionForm, { headers: this.authHeaders() })
+        : this.http.post<ClassSection>(`${this.apiUrl}/admin/classes/${classOptionId}/sections`, this.sectionForm, { headers: this.authHeaders() });
+      await firstValueFrom(request);
+      this.sectionForm = { name: '', display_order: 0 };
+      this.editingSectionId.set(null);
+      this.classSections.set(await this.fetchClassSections(classOptionId));
+      this.notice.set(sectionId ? 'Section updated.' : 'Section added.');
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to save this section.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  editSection(section: ClassSection): void {
+    this.sectionForm = { name: section.name, display_order: section.display_order };
+    this.editingSectionId.set(section.id);
+    this.clearMessages();
+  }
+
+  cancelSectionEdit(): void {
+    this.sectionForm = { name: '', display_order: 0 };
+    this.editingSectionId.set(null);
+    this.clearMessages();
+  }
+
+  async onStudentFormClassChange(classOptionId: string): Promise<void> {
+    this.studentForm.class_option_id = classOptionId;
+    this.studentForm.section_id = '';
+    this.studentFormSections.set(classOptionId ? await this.fetchClassSections(classOptionId) : []);
   }
 
   private async loadClassTuitions(feeYear?: number): Promise<void> {
