@@ -195,7 +195,7 @@ export class Dashboard implements OnInit {
   readonly tuitionPage = signal(1);
   tuitionForm = this.emptyTuitionForm();
 
-  loginForm = { email: 'admin@tinytara.com', password: 'ChangeMe123!' };
+  loginForm = { email: '', password: '' };
   contentForm = this.emptyContentForm();
   staffForm = {
     first_name: '',
