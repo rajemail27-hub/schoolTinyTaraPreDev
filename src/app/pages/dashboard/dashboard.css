@@ -76,6 +76,11 @@ textarea { resize: vertical; line-height: 1.55; }
 .sidebar nav button span { color: #70958b; font-size: 10px; }
 .sidebar nav button:hover, .sidebar nav button.active { color: var(--white); background: rgba(255,255,255,.12); }
 .sidebar nav button.active span { color: var(--yellow); }
+.sidebar nav button:has(.notify-badge) { grid-template-columns: 28px 1fr auto; }
+.sidebar nav button .notify-badge, .notify-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; color: #fff; background: #d92d20; font-size: 11px; font-weight: 900; }
+.sidebar nav button.active .notify-badge { color: #fff; }
+.attention-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 18px; padding: 12px 16px; border: 1px solid #f4b4ad; border-left: 5px solid #d92d20; background: #fff1f0; color: #7a1c14; }
+.attention-banner button { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #f4b4ad; border-radius: 999px; padding: 6px 12px; color: #7a1c14; background: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
 .sidebar-bottom { margin-top: auto; }
 .user-chip { padding: 13px 0 18px; border-top: 1px solid rgba(255,255,255,.15); }
 .avatar { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 50%; color: var(--forest); background: var(--yellow); font-size: 13px; font-weight: 900; }
@@ -101,7 +106,7 @@ textarea { resize: vertical; line-height: 1.55; }
 .stat-card { position: relative; overflow: hidden; padding: 22px 23px; background: var(--white); }
 .stat-card::after { position: absolute; right: -20px; bottom: -45px; width: 120px; height: 120px; border: 22px solid; border-radius: 50%; content: ''; opacity: .15; }
 .stat-card.accent-coral::after { border-color: var(--coral); }.stat-card.accent-blue::after { border-color: var(--sky); }.stat-card.accent-yellow::after { border-color: var(--yellow); }
-.stat-card span, .stat-card small { display: block; color: var(--muted); font-size: 11px; font-weight: 800; }.stat-card strong { display: block; margin: 8px 0 1px; font: 700 39px/1 "Baloo 2", cursive; }.stat-card small { font-size: 10px; font-weight: 700; }
+.stat-card span, .stat-card small { display: block; color: var(--muted); font-size: 11px; font-weight: 800; }.stat-card strong { display: block; margin: 8px 0 11px; font: 700 15px/1 "Baloo 2", cursive; }.stat-card small { font-size: 10px; font-weight: 700; }
 .role-summary { margin-bottom: 17px; }.role-summary .panel-heading { margin-bottom: 17px; }.role-summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }.role-summary-grid div { display: grid; gap: 3px; padding: 13px 10px; border-left: 3px solid var(--yellow); background: #f7f9f5; }.role-summary-grid strong { color: var(--forest); font: 700 25px/1 "Baloo 2", cursive; }.role-summary-grid span { color: var(--muted); font-size: 10px; font-weight: 900; }
 .overview-grid, .editor-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 17px; }
 .panel { padding: 25px; background: var(--white); }
@@ -121,7 +126,7 @@ textarea { resize: vertical; line-height: 1.55; }
 .password-button { grid-column: 2 / -1; justify-self: start; border: 0; padding: 0; color: var(--coral); background: transparent; font-size: 10px; font-weight: 900; }
 .password-button:hover { text-decoration: underline; }
 .account-button, .account-delete { border: 0; padding: 0; background: transparent; font-size: 10px; font-weight: 900; }
-.account-button { color: var(--forest); }.account-delete { color: #b44e43; }.account-button:hover, .account-delete:hover { text-decoration: underline; }
+.account-button { color: var(--forest); }.account-delete, .delete-button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; padding: 0; color: #b44e43; background: var(--white); font-size: 15px; line-height: 1; cursor: pointer; }.account-delete:hover, .delete-button:hover { color: #d33; border-color: #d33; }.account-button:hover { text-decoration: underline; }
 .protected-account { color: var(--muted); font-size: 10px; font-weight: 900; }
 .inactive-label { padding: 5px 7px; border-radius: 3px; color: #9a5d3e; background: #fff0df; font-size: 9px; font-weight: 900; text-transform: uppercase; }
 .pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 17px; color: var(--muted); font-size: 11px; font-weight: 800; }.pagination .outline-button { padding: 8px 10px; }
@@ -143,7 +148,7 @@ textarea { resize: vertical; line-height: 1.55; }
 .password-dialog.student-detail-dialog { width: min(760px, calc(100vw - 40px)); }
 .password-dialog h3 { margin: 7px 0; font: 700 28px/1 "Baloo 2", cursive; }.password-dialog p { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 
-@media (max-width: 900px) { .login-shell { grid-template-columns: 1fr; }.login-panel { min-height: 66vh; padding: 12vw; }.login-aside { min-height: 34vh; padding: 10vw; }.login-aside h2 { font-size: 48px; }.aside-note, .orbit { display: none; }.dashboard-shell { grid-template-columns: 1fr; }.sidebar { min-height: auto; padding: 17px 22px; }.sidebar-rule, .nav-label, .sidebar-bottom { display: none; }.sidebar nav { display: flex; overflow-x: auto; margin-top: 19px; }.sidebar nav button { min-width: max-content; padding: 9px 12px; }.sidebar nav button span { display: none; }.dashboard-main { padding: 30px 22px 50px; }.overview-grid, .editor-layout { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .login-shell { grid-template-columns: 1fr; }.login-panel { min-height: 66vh; padding: 12vw; }.login-aside { min-height: 34vh; padding: 10vw; }.login-aside h2 { font-size: 48px; }.aside-note, .orbit { display: none; }.dashboard-shell { grid-template-columns: 1fr; }.sidebar { min-height: auto; padding: 17px 22px; }.sidebar-rule, .nav-label, .sidebar-bottom { display: none; }.sidebar nav { display: flex; overflow-x: auto; margin-top: 19px; }.sidebar nav button { min-width: max-content; padding: 9px 12px; }.sidebar nav button > span:first-child { display: none; }.dashboard-main { padding: 30px 22px 50px; }.overview-grid, .editor-layout { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .staff-layout { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .profile-layout { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .student-layout { grid-template-columns: 1fr; } }
