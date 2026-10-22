@@ -165,11 +165,10 @@
           <label for="childAge">Child's Age *</label>
           <select id="childAge" formControlName="childAge" [class.invalid]="isInvalid('childAge')">
             <option value="">Select age</option>
-            <option value="1.5-2">1.5 – 2 Years</option>
-            <option value="2-3">2 – 3 Years</option>
-            <option value="3-4">3 – 4 Years</option>
-            <option value="4-5">4 – 5 Years</option>
-            <option value="5+">5+ Years</option>
+            <option value="2-3">Play Group (2 – 3 Years)</option>
+            <option value="3-4">Nursery (3 – 4 Years)</option>
+            <option value="4-5">LKG (4 – 5 Years)</option>
+            <option value="5-6">UKG (5 – 6 Years)</option>
           </select>
           @if (isInvalid('childAge')) {
             <small class="error-message">Please select your child's age.</small>
@@ -186,7 +185,11 @@
           ></textarea>
         </div>
 
-        <button type="submit" class="submit-button">Send Admission Enquiry ✨</button>
+        @if (submitError) {
+          <small class="error-message">{{ submitError }}</small>
+        }
+
+        <button type="submit" class="submit-button" [disabled]="sending">{{ sending ? 'Sending…' : 'Send Admission Enquiry ✨' }}</button>
       </form>
     </div>
   </div>
