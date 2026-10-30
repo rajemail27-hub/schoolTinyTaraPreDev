@@ -536,3 +536,246 @@ app-dashboard .staff-search input {
     grid-template-columns: 1fr;
   }
 }
+
+app-dashboard.native-app .dashboard-shell {
+  min-height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+app-dashboard.native-app .dashboard-shell .sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: auto;
+  padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+  box-shadow: 0 8px 22px rgba(23, 60, 57, .14);
+}
+
+app-dashboard.native-app .dashboard-shell .sidebar-rule,
+app-dashboard.native-app .dashboard-shell .nav-label { display: none; }
+
+app-dashboard.native-app .dashboard-shell .sidebar nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-top: 13px;
+  padding-bottom: 3px;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+app-dashboard.native-app .dashboard-shell .sidebar nav::-webkit-scrollbar { display: none; }
+
+app-dashboard.native-app .dashboard-shell .sidebar nav button,
+app-dashboard.native-app .dashboard-shell .sidebar nav button:has(.notify-badge) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  padding: 9px 14px;
+  scroll-snap-align: start;
+  white-space: nowrap;
+  background: rgba(255,255,255,.06);
+}
+
+app-dashboard.native-app .dashboard-shell .sidebar nav button > span:first-child { display: none; }
+app-dashboard.native-app .dashboard-shell .sidebar nav button.active { border-color: var(--yellow); color: var(--forest); background: var(--yellow); }
+app-dashboard.native-app .dashboard-shell .sidebar nav button.active > span { color: var(--forest); }
+app-dashboard.native-app .dashboard-shell .sidebar nav button .notify-badge { color: var(--white); background: #d92d20; }
+
+app-dashboard.native-app .dashboard-shell .sidebar-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,.16);
+}
+
+app-dashboard.native-app .dashboard-shell .user-chip { flex: 1; min-width: 0; gap: 7px; padding: 0; border: 0; }
+app-dashboard.native-app .dashboard-shell .user-chip > span:last-child { min-width: 0; }
+app-dashboard.native-app .dashboard-shell .user-chip strong { max-width: 120px; }
+
+app-dashboard.native-app .dashboard-shell .sign-out {
+  width: auto;
+  min-height: 40px;
+  gap: 5px;
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255,255,255,.08);
+  white-space: nowrap;
+}
+
+app-dashboard.native-app .dashboard-shell .dashboard-main {
+  min-width: 0;
+  padding: 22px 16px max(36px, env(safe-area-inset-bottom));
+}
+
+app-dashboard.native-app .dashboard-shell .dashboard-header {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+app-dashboard.native-app .dashboard-shell .dashboard-header h1 { font-size: 30px; overflow-wrap: anywhere; }
+app-dashboard.native-app .dashboard-shell .directory-heading-actions {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+app-dashboard.native-app .dashboard-shell .directory-heading-actions .preview-link {
+  order: 1;
+}
+
+app-dashboard.native-app .dashboard-shell .directory-heading-actions app-notification-center {
+  order: 2;
+  flex: 0 0 42px;
+  width: 42px;
+  margin-left: auto;
+}
+
+app-dashboard.native-app app-notification-center .notification-popover {
+  width: min(390px, calc(100vw - 32px));
+  max-width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px);
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 340px);
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+app-dashboard.native-app app-notification-center .notification-popover-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+app-dashboard.native-app app-notification-center .notification-popover-header > div {
+  min-width: 0;
+}
+
+app-dashboard.native-app app-notification-center .notification-row {
+  min-width: 0;
+}
+
+app-dashboard.native-app app-notification-center .notification-open {
+  overflow-wrap: anywhere;
+}
+
+app-dashboard.native-app app-notification-center .notification-mark-read {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+app-dashboard.native-app app-notification-center .notification-toast {
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  left: max(12px, env(safe-area-inset-left));
+  width: auto;
+  max-width: 460px;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  margin-left: auto;
+  box-sizing: border-box;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  app-dashboard.native-app app-notification-center .notification-popover {
+    width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px);
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 340px);
+    padding: 13px;
+  }
+
+  app-dashboard.native-app app-notification-center .notification-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 7px;
+  }
+
+  app-dashboard.native-app app-notification-center .notification-mark-read {
+    align-self: flex-end;
+    padding: 5px 0;
+  }
+
+  app-dashboard.native-app app-notification-center .notification-toast {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  app-dashboard.native-app app-notification-center .notification-toast > div {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  app-dashboard.native-app app-notification-center .notification-toast > button {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+}
+
+app-dashboard.native-app .dashboard-shell .overview-grid,
+app-dashboard.native-app .dashboard-shell .editor-layout,
+app-dashboard.native-app .dashboard-shell .attendance-sheet,
+app-dashboard.native-app .dashboard-shell .staff-layout,
+app-dashboard.native-app .dashboard-shell .profile-layout,
+app-dashboard.native-app .dashboard-shell .field-grid,
+app-dashboard.native-app .dashboard-shell .field-grid.field-grid-three { grid-template-columns: minmax(0, 1fr); }
+
+app-dashboard.native-app .dashboard-shell .stat-grid,
+app-dashboard.native-app .dashboard-shell .role-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+app-dashboard.native-app .dashboard-shell .content-toolbar,
+app-dashboard.native-app .dashboard-shell .welcome-band { align-items: stretch; flex-direction: column; }
+app-dashboard.native-app .dashboard-shell .content-toolbar { gap: 12px; }
+app-dashboard.native-app .dashboard-shell .page-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 3px; }
+
+app-dashboard.native-app .dashboard-shell .page-tabs button,
+app-dashboard.native-app .dashboard-shell .form-actions button { min-height: 42px; }
+
+app-dashboard.native-app .dashboard-shell .single-panel-wrap { width: 100%; max-width: none; }
+app-dashboard.native-app .dashboard-shell .panel { min-width: 0; padding: 18px 15px; }
+app-dashboard.native-app .dashboard-shell .panel-heading { align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+app-dashboard.native-app .dashboard-shell .form-actions { flex-wrap: wrap; }
+app-dashboard.native-app .dashboard-shell .student-table-wrap { max-width: 100%; overflow-x: auto; }
+
+app-dashboard.native-app .sidebar nav {
+  scrollbar-width: none;
+}
+
+app-dashboard.native-app .sidebar nav::-webkit-scrollbar {
+  display: none;
+}
+
+app-dashboard.native-app .login-shell {
+  min-height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+app-dashboard.native-app .login-panel {
+  min-height: 100dvh;
+  padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+}
+
+app-dashboard.native-app .login-aside {
+  display: none;
+}
+
+app-dashboard.native-app .login-brand,
+app-dashboard.native-app .login-intro,
+app-dashboard.native-app .login-form,
+app-dashboard.native-app .visit-site-link {
+  width: min(100%, 440px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+app-dashboard.native-app .login-intro {
+  margin-top: 24px;
+  margin-bottom: 28px;
+}

@@ -41,6 +41,76 @@ describe('Dashboard', () => {
     expect(text).not.toContain('Student contacts');
   });
 
+  it('does not show the login site link in the authenticated dashboard', () => {
+    expect(fixture.nativeElement.querySelector('.visit-site-link')).toBeNull();
+  });
+
+  it('shows the child and school information login description', () => {
+    component.token.set(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.login-intro')?.textContent).toContain(
+      "Log in to access your child's school notes, academic results, attendance records, fee details, and important school updates — all in one place."
+    );
+  });
+
+  it('toggles login password visibility with an accessible button', () => {
+    component.token.set(null);
+    fixture.detectChanges();
+
+    const password = fixture.nativeElement.querySelector('input[name="password"]') as HTMLInputElement;
+    const toggle = fixture.nativeElement.querySelector('.password-visibility-toggle') as HTMLButtonElement;
+    expect(password.type).toBe('password');
+    expect(toggle.getAttribute('aria-label')).toBe('Show password');
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(password.type).toBe('text');
+    expect(toggle.getAttribute('aria-label')).toBe('Hide password');
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(password.type).toBe('password');
+  });
+
+  it('keeps content tabs visible on web', () => {
+    const labels = Array.from(fixture.nativeElement.querySelectorAll('nav button') as NodeListOf<HTMLButtonElement>)
+      .map(button => button.textContent ?? '');
+
+    expect(labels.some(label => label.includes('Page content'))).toBe(true);
+    expect(labels.some(label => label.includes('Contact details'))).toBe(true);
+    expect(labels.some(label => label.includes('Gallery upload'))).toBe(true);
+  });
+
+  it('hides page content, contact details, and gallery tabs in the native app', () => {
+    Object.defineProperty(component, 'isNativeApp', { value: true });
+    component.user.set({ ...component.user()! });
+    fixture.detectChanges();
+
+    const labels = Array.from(fixture.nativeElement.querySelectorAll('nav button') as NodeListOf<HTMLButtonElement>)
+      .map(button => button.textContent ?? '');
+    expect(labels.some(label => label.includes('Page content'))).toBe(false);
+    expect(labels.some(label => label.includes('Contact details'))).toBe(false);
+    expect(labels.some(label => label.includes('Gallery upload'))).toBe(false);
+  });
+
+  it('shows the Visit Website link in the native app login screen', () => {
+    component.token.set(null);
+    Object.defineProperty(component, 'isNativeApp', { value: true });
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('.visit-site-link') as HTMLAnchorElement | null;
+    expect(link?.textContent).toContain('Visit Website');
+  });
+
+  it('shows the Visit Website link in the web login screen', () => {
+    component.token.set(null);
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('.visit-site-link') as HTMLAnchorElement | null;
+    expect(link?.textContent).toContain('Visit Website');
+    expect(link?.getAttribute('href')).toBe('/');
+  });
+
   it('shows the leave application form on its own student-only tab', () => {
     component.user.set({ ...component.user()!, role: 'student' });
     component.activeView.set('apply-leave');

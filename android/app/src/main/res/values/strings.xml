@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tiny Tara Preschool</string>
+    <string name="title_activity_main">Tiny Tara Preschool</string>
+    <string name="package_name">com.tinytara.preschool</string>
+    <string name="custom_url_scheme">com.tinytara.preschool</string>
+</resources>

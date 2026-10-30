@@ -1,6 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Subject, firstValueFrom } from 'rxjs';
+import { API_URL } from './api-url';
 
 export interface AdmissionEnquiryNotification {
   id: string;
@@ -75,7 +76,6 @@ export interface NotificationState {
   error: string;
 }
 
-const API_URL = 'http://127.0.0.1:8000/api';
 const PAGE_SIZE = 30;
 const INITIAL_STATE: NotificationState = {
   items: [],

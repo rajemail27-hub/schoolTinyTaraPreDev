@@ -2,6 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { API_URL } from './api-url';
 
 export interface SiteContent {
   id?: string;
@@ -22,7 +23,7 @@ const FALLBACK_CONTENT: SiteContent = {
 
 @Injectable({ providedIn: 'root' })
 export class SiteContentService {
-  private readonly apiUrl = 'http://127.0.0.1:8000/api';
+  private readonly apiUrl = API_URL;
   private readonly content = signal<SiteContent>(FALLBACK_CONTENT);
   private loaded = false;
 

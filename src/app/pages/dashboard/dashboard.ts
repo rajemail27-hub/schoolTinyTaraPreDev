@@ -1,10 +1,13 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { API_URL } from '../../services/api-url';
 import { AdmissionEnquiryNotification, LeaveRequestNotification, NotificationService, SchoolNoteNotification } from '../../services/notification.service';
 import { NotificationCenter } from './notification-center';
 
@@ -104,15 +107,18 @@ interface DashboardTab { view: DashboardView; label: string; }
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, NotificationCenter],
   templateUrl: './dashboard.html',
-  styleUrl: './dashboard.css'
+  styleUrl: './dashboard.css',
+  host: { '[class.native-app]': 'isNativeApp' }
 })
 export class Dashboard implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly notificationService = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly apiUrl = 'http://127.0.0.1:8000/api';
+  private readonly apiUrl = API_URL;
+  private pushListenersRegistered = false;
 
+  readonly isNativeApp = Capacitor.isNativePlatform();
   readonly token = signal<string | null>(null);
   readonly user = signal<UserProfile | null>(null);
   readonly dashboardTabs = computed<DashboardTab[]>(() => {
@@ -143,7 +149,9 @@ export class Dashboard implements OnInit, OnDestroy {
     add(this.canViewStaff(), 'staff', 'Staff accounts');
     add(this.canViewStaff(), 'parents', 'Parent accounts');
     add(this.canViewStudents() && !this.isTeacher(), 'students', 'Students');
-    return tabs;
+    return this.isNativeApp
+      ? tabs.filter(tab => !['pages', 'contact', 'gallery'].includes(tab.view))
+      : tabs;
   });
   readonly pageContents = signal<PageContent[]>([]);
   readonly users = signal<UserRecord[]>([]);
@@ -358,6 +366,7 @@ export class Dashboard implements OnInit, OnDestroy {
   tuitionForm = this.emptyTuitionForm();
 
   loginForm = { email: '', password: '' };
+  readonly showLoginPassword = signal(false);
   contentForm = this.emptyContentForm();
   staffForm = {
     first_name: '',
@@ -411,6 +420,12 @@ export class Dashboard implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.notificationService.stop();
+    if (this.isNativeApp && this.pushListenersRegistered) {
+      void FirebaseMessaging.removeAllListeners().catch(error => {
+        console.error('Unable to remove mobile push listeners.', error);
+      });
+      this.pushListenersRegistered = false;
+    }
   }
 
   async login(): Promise<void> {
@@ -431,13 +446,132 @@ export class Dashboard implements OnInit, OnDestroy {
     }
   }
 
-  logout(): void {
+  async logout(forceLocal = false): Promise<void> {
+    const savedPushToken = typeof window === 'undefined'
+      ? null
+      : window.localStorage.getItem('tiny-tara-push-token');
+    if (!forceLocal && this.isNativeApp && savedPushToken && this.token()) {
+      try {
+        await firstValueFrom(this.http.delete<void>(`${this.apiUrl}/push/devices`, {
+          headers: this.authHeaders(),
+          body: { token: savedPushToken }
+        }));
+      } catch (error) {
+        this.error.set(this.errorMessage(error, 'Unable to sign out and remove this device from notifications. Please try again.'));
+        return;
+      }
+    }
+    if (this.isNativeApp) {
+      try {
+        if (savedPushToken) {
+          await FirebaseMessaging.deleteToken();
+        }
+        await FirebaseMessaging.removeAllListeners();
+      } catch (error) {
+        this.error.set(this.errorMessage(error, 'Unable to disable mobile notifications on this device. Please try signing out again.'));
+        return;
+      }
+      this.pushListenersRegistered = false;
+    }
     this.notificationService.stop();
     this.token.set(null);
     this.user.set(null);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('tiny-tara-dashboard-token');
+      window.localStorage.removeItem('tiny-tara-push-token');
     }
+  }
+
+  private async setupNativePushNotifications(): Promise<void> {
+    if (!this.token()) {
+      return;
+    }
+    if (!this.pushListenersRegistered) {
+      await FirebaseMessaging.addListener('tokenReceived', event => {
+        void this.registerPushToken(event.token);
+      });
+      await FirebaseMessaging.addListener('notificationActionPerformed', event => {
+        const data = event.notification.data;
+        const view = data && typeof data === 'object' && 'view' in data
+          ? data.view
+          : undefined;
+        this.handlePushNavigation(view);
+      });
+      await FirebaseMessaging.addListener('notificationReceived', event => {
+        const title = event.notification.title;
+        const body = event.notification.body;
+        this.notice.set([title, body].filter(Boolean).join(': ') || 'A new school update is available.');
+      });
+      this.pushListenersRegistered = true;
+    }
+
+    let permission = await FirebaseMessaging.checkPermissions();
+    if (permission.receive !== 'granted') {
+      permission = await FirebaseMessaging.requestPermissions();
+    }
+    if (permission.receive !== 'granted') {
+      this.notice.set('Push notifications are disabled for this device.');
+      return;
+    }
+    const result = await FirebaseMessaging.getToken();
+    await this.registerPushToken(result.token);
+  }
+
+  private async registerPushToken(pushToken: string): Promise<void> {
+    const accessToken = this.token();
+    if (!accessToken) {
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('tiny-tara-push-token', pushToken);
+    }
+    try {
+      await firstValueFrom(this.http.put<void>(`${this.apiUrl}/push/devices`, {
+        token: pushToken,
+        platform: Capacitor.getPlatform()
+      }, {
+        headers: new HttpHeaders({ Authorization: `Bearer ${accessToken}` })
+      }));
+    } catch (error) {
+      console.error('Unable to register this device for mobile push notifications.', error);
+      this.error.set(this.errorMessage(error, 'This device could not be registered for push notifications.'));
+    }
+  }
+
+  private handlePushNavigation(view: unknown): void {
+    if (typeof view !== 'string') {
+      return;
+    }
+    if (!this.token()) {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('tiny-tara-pending-push-view', view);
+      }
+      return;
+    }
+    void this.navigateTo(this.resolvePushView(view));
+  }
+
+  private consumePendingPushNavigation(): void {
+    if (typeof window === 'undefined' || !this.token()) {
+      return;
+    }
+    const view = window.localStorage.getItem('tiny-tara-pending-push-view');
+    if (!view) {
+      return;
+    }
+    window.localStorage.removeItem('tiny-tara-pending-push-view');
+    void this.navigateTo(this.resolvePushView(view));
+  }
+
+  private resolvePushView(view: string): DashboardView {
+    const supportedViews: DashboardView[] = [
+      'enquiries', 'school-notes', 'leave-requests', 'attendance', 'tuition'
+    ];
+    const requestedView = supportedViews.find(candidate => candidate === view);
+    if (requestedView && this.canView(requestedView)) {
+      return requestedView;
+    }
+    return this.isStudent() || this.isParent() ? 'my-dashboard' : 'overview';
   }
 
   async loadWorkspace(): Promise<void> {
@@ -494,10 +628,19 @@ export class Dashboard implements OnInit, OnDestroy {
       } else {
         this.notificationService.stop();
       }
+      if (this.isNativeApp) {
+        try {
+          await this.setupNativePushNotifications();
+        } catch (error) {
+          console.error('Unable to set up mobile push notifications.', error);
+          this.error.set(this.errorMessage(error, 'Mobile push notifications could not be enabled.'));
+        }
+      }
+      this.consumePendingPushNavigation();
     } catch (error) {
       this.error.set(this.errorMessage(error, 'The dashboard could not load its data.'));
       if (error instanceof HttpErrorResponse && error.status === 401) {
-        this.logout();
+        void this.logout(true);
       }
     }
   }

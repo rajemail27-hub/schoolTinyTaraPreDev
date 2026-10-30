@@ -36,6 +36,47 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Mobile apps
+
+The Angular app is packaged for iOS and Android with Capacitor. The website build and
+server-side rendering configuration remain unchanged. To create or refresh the native
+projects after changing the Angular app, run:
+
+```bash
+npm run sync:mobile
+```
+
+Open the native project in its IDE with:
+
+```bash
+npm run open:android
+npm run open:ios
+```
+
+Android builds require Android Studio and the Android SDK. iOS builds require macOS
+and Xcode. The app ID is `com.tinytara.preschool`; change it before publishing if you
+need to use an identifier associated with your own organization.
+
+### Firebase push notification setup
+
+Native push notifications use Firebase Cloud Messaging. Before registering devices:
+
+1. Create a Firebase project and register Android (`com.tinytara.preschool`) and iOS
+   apps with matching application identifiers.
+2. Place the Android Firebase config at `android/app/google-services.json` and the
+   iOS config at `ios/App/App/GoogleService-Info.plist`. These files are ignored by
+   Git and must be provided locally.
+3. In Firebase, configure an APNs authentication key for the iOS app. In Xcode,
+   enable the Push Notifications capability and select a valid development team.
+4. Configure the API's `FIREBASE_SERVICE_ACCOUNT_PATH` to a Firebase service-account
+   JSON file with Cloud Messaging permissions. Keep it outside source control.
+5. Apply the API database migration, then run `npm run sync:mobile` and rebuild the
+   Android or iOS app.
+
+The app asks for notification permission after sign-in, registers the FCM token to
+that account, and removes the account's registration on sign-out. Web behavior does
+not register for push notifications.
+
 ## Running unit tests
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:

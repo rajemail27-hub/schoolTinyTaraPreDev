@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
+import { API_URL } from '../../services/api-url';
 import { SiteContentService } from '../../services/site-content.service';
 
 @Component({
@@ -15,7 +16,7 @@ import { SiteContentService } from '../../services/site-content.service';
 export class Contact implements OnInit {
   readonly siteContent = inject(SiteContentService);
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://127.0.0.1:8000/api';
+  private readonly apiUrl = API_URL;
   submitted = false;
   sending = false;
   submitError = '';
