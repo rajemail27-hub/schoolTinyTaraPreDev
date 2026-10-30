@@ -148,6 +148,24 @@ CONTACT FORM SECTION
   line-height: 1.8;
 }
 
+@media (min-width: 1001px) {
+  .contact-content {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .contact-illustration {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+  }
+
+  .form-card {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
+
 /* FEATURES */
 
 .contact-features {

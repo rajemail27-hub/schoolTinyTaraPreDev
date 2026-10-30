@@ -35,4 +35,504 @@ input,
 select,
 textarea {
   font-family: inherit;
-}/* You can add global styles to this file, and also import other style files */
+}
+
+app-dashboard .leave-request-card .status-tag {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #276354;
+  background: #e5f3eb;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+app-dashboard .leave-request-card .status-pending {
+  color: #8a5a12;
+  background: #fff3d6;
+}
+
+app-dashboard .leave-request-card .status-inactive {
+  color: #9a473e;
+  background: #fff0ec;
+}
+
+app-dashboard .leave-request-card .status-cancelled {
+  color: #56636b;
+  background: #e9eef0;
+}
+
+app-dashboard .leave-request-list {
+  display: grid;
+  gap: 14px;
+}
+
+app-dashboard .leave-request-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid #dce5e1;
+  border-radius: 10px;
+  background: #fbfcfa;
+}
+
+app-dashboard .leave-request-card.leave-request-pending {
+  border-color: #efb26b;
+  border-left: 5px solid #ef725e;
+  background: #fff4e8;
+}
+
+app-dashboard .leave-request-card.leave-request-approved {
+  border-color: #a9d2b4;
+  border-left: 5px solid #65a878;
+  background: #edf7ef;
+}
+
+app-dashboard .leave-request-card.leave-request-rejected {
+  border-color: #e2b9b5;
+  border-left: 5px solid #c46c64;
+  background: #fff0ed;
+}
+
+app-dashboard .leave-request-card.leave-request-cancelled {
+  border-color: #cbd4d8;
+  border-left: 5px solid #788990;
+  background: #f0f3f4;
+}
+
+app-dashboard .leave-request-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #dce5e1;
+}
+
+app-dashboard .leave-request-student,
+app-dashboard .leave-request-date {
+  display: grid;
+  gap: 4px;
+}
+
+app-dashboard .leave-request-student {
+  min-width: 0;
+}
+
+app-dashboard .leave-request-student strong {
+  color: #172b2f;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+app-dashboard .leave-request-student span,
+app-dashboard .leave-request-date span {
+  color: #708083;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+app-dashboard .leave-request-date strong {
+  color: #173c39;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+app-dashboard .password-dialog.school-note-dialog {
+  width: min(820px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  align-content: start;
+}
+
+app-dashboard .school-note-dialog .field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+app-dashboard .school-note-dialog textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+@media (max-width: 640px) {
+  app-dashboard .password-dialog-backdrop {
+    padding: 12px;
+  }
+
+  app-dashboard .password-dialog.school-note-dialog {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  app-dashboard .school-note-dialog .field-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
+app-dashboard .leave-request-reason {
+  margin: 0;
+  color: #34494a;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+app-dashboard .leave-request-remarks {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #77b8c6;
+  color: #526568;
+  background: #f0f7f7;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+app-dashboard .leave-request-submitted {
+  color: #708083;
+  font-size: 11px;
+}
+
+app-dashboard .leave-request-review {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #dce5e1;
+}
+
+app-dashboard h1,
+app-dashboard h2,
+app-dashboard h3 {
+  font-family: "Nunito", sans-serif;
+}
+
+app-dashboard .panel {
+  border: 1px solid #e5ebe7;
+  border-radius: 12px;
+  box-shadow: 0 5px 18px rgba(23, 60, 57, .045);
+}
+
+app-dashboard .stat-card {
+  border: 1px solid #e5ebe7;
+  border-radius: 12px;
+}
+
+app-dashboard .mini-list:has(.holiday-list-row) {
+  display: grid;
+  gap: 12px;
+  border-top: 0;
+}
+
+app-dashboard .holiday-list-row {
+  min-width: 0;
+  padding: 15px 17px;
+  border: 1px solid #e5ebe7;
+  border-radius: 9px;
+  background: #fbfcfa;
+  overflow-wrap: anywhere;
+}
+
+app-dashboard .holiday-list-row > p {
+  color: #34494a;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+app-dashboard .holiday-list-row > small {
+  color: #708083;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+app-dashboard .holiday-list-row > strong {
+  color: #173c39;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+app-dashboard .primary-button,
+app-dashboard .outline-button,
+app-dashboard .text-button,
+app-dashboard .page-tabs button {
+  border-radius: 8px;
+}
+
+app-dashboard input,
+app-dashboard select,
+app-dashboard textarea {
+  border-radius: 8px;
+}
+
+app-dashboard .student-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e5ebe7;
+  border-radius: 9px;
+}
+
+app-dashboard .student-table {
+  min-width: 620px;
+}
+
+app-dashboard .student-table th {
+  background: #f7f9f6;
+}
+
+app-dashboard .student-table tbody tr:hover {
+  background: #fbfcfa;
+}
+
+app-dashboard .staff-search {
+  flex-wrap: wrap;
+}
+
+app-dashboard .staff-search input {
+  min-width: 180px;
+}
+
+@media (max-width: 1100px) {
+  app-dashboard .student-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  app-dashboard .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  app-dashboard .login-panel {
+    min-height: 66vh;
+    padding: 12vw;
+  }
+
+  app-dashboard .login-aside {
+    min-height: 34vh;
+    padding: 10vw;
+  }
+
+  app-dashboard .login-aside h2 {
+    font-size: 48px;
+  }
+
+  app-dashboard .aside-note,
+  app-dashboard .orbit {
+    display: none;
+  }
+
+  app-dashboard .dashboard-shell {
+    grid-template-columns: 1fr;
+  }
+
+  app-dashboard .sidebar {
+    min-height: auto;
+    padding: 17px 22px;
+  }
+
+  app-dashboard .sidebar-rule,
+  app-dashboard .nav-label,
+  app-dashboard .sidebar-bottom {
+    display: none;
+  }
+
+  app-dashboard .sidebar nav {
+    display: flex;
+    overflow-x: auto;
+    margin-top: 19px;
+  }
+
+  app-dashboard .sidebar nav button {
+    min-width: max-content;
+    padding: 9px 12px;
+  }
+
+  app-dashboard .sidebar nav button > span:first-child {
+    display: none;
+  }
+
+  app-dashboard .dashboard-main {
+    padding: 30px 22px 50px;
+  }
+
+  app-dashboard .overview-grid,
+  app-dashboard .editor-layout,
+  app-dashboard .attendance-sheet,
+  app-dashboard .staff-layout,
+  app-dashboard .profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  app-dashboard .role-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  app-dashboard .panel {
+    border-radius: 10px;
+  }
+
+  app-dashboard .holiday-list-row {
+    padding: 13px;
+  }
+
+  app-dashboard .stat-grid,
+  app-dashboard .role-summary-grid {
+    gap: 10px;
+  }
+
+  app-dashboard .leave-request-card {
+    padding: 15px;
+  }
+
+  app-dashboard .leave-request-top {
+    gap: 10px;
+  }
+
+  app-dashboard .leave-request-review .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  app-dashboard .leave-request-review .form-actions button {
+    width: 100%;
+  }
+
+  app-dashboard .dashboard-header,
+  app-dashboard .welcome-band,
+  app-dashboard .content-toolbar {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  app-dashboard .dashboard-header h1 {
+    font-size: 34px;
+  }
+
+  app-dashboard .welcome-band {
+    padding: 25px;
+  }
+
+  app-dashboard .stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  app-dashboard .field-grid,
+  app-dashboard .field-grid.field-grid-three {
+    grid-template-columns: 1fr;
+  }
+
+  app-dashboard .panel {
+    padding: 20px 17px;
+  }
+
+  app-dashboard .page-tabs {
+    gap: 4px;
+  }
+
+  app-dashboard .page-tabs button {
+    padding: 8px 9px;
+  }
+
+  app-dashboard .section-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  app-dashboard .section-row .delete-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  app-dashboard .publish-pill {
+    grid-column: 1;
+    width: max-content;
+    margin: -9px 0 8px 49px;
+  }
+
+  app-dashboard .form-actions {
+    justify-content: stretch;
+  }
+
+  app-dashboard .form-actions button {
+    flex: 1;
+  }
+
+  app-dashboard .staff-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  app-dashboard .staff-actions {
+    flex-wrap: wrap;
+    padding-left: 42px;
+  }
+
+  app-dashboard .role-pill {
+    grid-column: 2;
+    width: max-content;
+  }
+
+  app-dashboard .password-button,
+  app-dashboard .account-button,
+  app-dashboard .account-delete {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  app-dashboard .staff-search {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  app-dashboard .staff-search select,
+  app-dashboard .staff-search .outline-button {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  app-dashboard .role-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  app-dashboard .login-panel {
+    padding: 28px 22px;
+  }
+
+  app-dashboard .login-aside {
+    padding: 35px 22px;
+  }
+
+  app-dashboard .login-aside h2 {
+    font-size: 40px;
+  }
+
+  app-dashboard .dashboard-main {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  app-dashboard .panel-heading {
+    flex-wrap: wrap;
+  }
+
+  app-dashboard .pagination {
+    flex-wrap: wrap;
+  }
+
+  app-dashboard .holiday-list-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  app-dashboard .student-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

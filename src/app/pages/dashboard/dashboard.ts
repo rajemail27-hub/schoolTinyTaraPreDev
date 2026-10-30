@@ -1,9 +1,12 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AdmissionEnquiryNotification, LeaveRequestNotification, NotificationService, SchoolNoteNotification } from '../../services/notification.service';
+import { NotificationCenter } from './notification-center';
 
 interface TokenResponse {
   access_token: string;
@@ -74,7 +77,8 @@ interface DailyAttendanceBulkResult { saved_student_ids: string[]; failed: Array
 interface SchoolNote { id: string; title: string; content: string; category: 'leave' | 'class_task' | 'homework' | 'announcement' | 'general' | 'other'; visibility: 'individual' | 'class'; class_option_id: string; class_name: string; student_id: string | null; student_name: string | null; created_by_id: string; created_by_name: string; due_date: string | null; is_active: boolean; created_at: string; updated_at: string; }
 interface UnreadCounts { school_notes: number; leave_requests: number; admission_enquiries?: number; pending_leave_requests?: number; pending_admission_enquiries?: number; }
 interface AdmissionEnquiry { id: string; parent_name: string; phone: string; email: string; child_name: string; child_age: string; message: string | null; status: 'new' | 'contacted' | 'closed'; is_unread: boolean; created_at: string; updated_at: string; }
-interface LeaveRequest { id: string; student_id: string; student_name: string; student_code: string; class_option_id: string; class_name: string; start_date: string; end_date: string; reason: string; status: 'pending' | 'approved' | 'rejected'; remarks: string | null; reviewed_by_name: string | null; reviewed_at: string | null; created_at: string; updated_at: string; }
+type EnquiryPeriod = 'day' | 'week' | 'month' | 'year';
+interface LeaveRequest { id: string; student_id: string; student_name: string; student_code: string; class_option_id: string; class_name: string; start_date: string; end_date: string; reason: string; status: 'pending' | 'approved' | 'rejected' | 'cancelled'; remarks: string | null; reviewed_by_name: string | null; reviewed_at: string | null; created_at: string; updated_at: string; }
 interface Holiday { id: string; holiday_date: string; name: string; }
 interface MyAttendanceRow { attendance_date: string; status: 'present' | 'absent' | 'late' | 'leave' | 'holiday' | null; note: string | null; is_holiday: boolean; }
 interface MyPunchRow { id: string; direction: string; punched_at: string; }
@@ -92,19 +96,21 @@ interface RolePermissionEntry { resource: string; action: 'read' | 'create' | 'u
 interface RolePermissionSummary { role: string; permissions: RolePermissionEntry[]; }
 
 type StaffRole = 'admin' | 'teacher' | 'clerk' | 'security' | 'parent';
-type DashboardView = 'overview' | 'pages' | 'contact' | 'gallery' | 'staff' | 'parents' | 'students' | 'classes' | 'class-access' | 'family-links' | 'fee-visibility' | 'notes' | 'school-notes' | 'leave-requests' | 'enquiries' | 'holidays' | 'attendance' | 'punch-attendance' | 'tuition' | 'profile' | 'permissions' | 'my-dashboard';
+type DashboardView = 'overview' | 'pages' | 'contact' | 'gallery' | 'staff' | 'parents' | 'students' | 'classes' | 'class-access' | 'family-links' | 'fee-visibility' | 'notes' | 'school-notes' | 'apply-leave' | 'leave-requests' | 'enquiries' | 'holidays' | 'attendance' | 'punch-attendance' | 'tuition' | 'profile' | 'permissions' | 'my-dashboard';
 interface DashboardTab { view: DashboardView; label: string; }
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, NotificationCenter],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
-export class Dashboard implements OnInit {
+export class Dashboard implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly notificationService = inject(NotificationService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly apiUrl = 'http://127.0.0.1:8000/api';
 
   readonly token = signal<string | null>(null);
@@ -118,6 +124,7 @@ export class Dashboard implements OnInit {
     add(this.isStudent() || this.isParent(), 'my-dashboard', 'My Dashboard');
     add(!this.isStudent() && !this.isParent(), 'overview', 'Overview');
     add(this.isStudent() || this.isParent(), 'school-notes', 'School notes');
+    add(this.isStudent(), 'apply-leave', 'Apply for leave');
     add(this.canReviewLeaveRequests(), 'leave-requests', 'Leave requests');
     add(this.canViewEnquiries(), 'enquiries', 'Admission enquiries');
     add(this.can('page_content', 'read'), 'pages', 'Page content');
@@ -153,8 +160,13 @@ export class Dashboard implements OnInit {
   readonly attendanceBulkSaving = signal(false);
   readonly unreadCounts = signal<UnreadCounts | null>(null);
   readonly notes = signal<SchoolNote[]>([]);
+  readonly notesPage = signal(1);
+  readonly notesPageSize = 10;
+  readonly paginatedNotes = computed(() => this.notes().slice((this.notesPage() - 1) * this.notesPageSize, this.notesPage() * this.notesPageSize));
+  readonly notesTotalPages = computed(() => Math.max(1, Math.ceil(this.notes().length / this.notesPageSize)));
   readonly noteStudents = signal<StudentRecord[]>([]);
   readonly noteFormOpen = signal(false);
+  readonly noteSaveError = signal('');
   readonly editingNoteId = signal<string | null>(null);
   readonly noteCategoryFilter = signal('');
   readonly noteStudentFilter = signal('');
@@ -162,8 +174,79 @@ export class Dashboard implements OnInit {
   readonly selectedNoteChildId = signal('');
   readonly noteChildren = signal<StudentRecord[]>([]);
   readonly recipientNotes = signal<SchoolNote[]>([]);
+  readonly recipientNotesPage = signal(1);
+  readonly paginatedRecipientNotes = computed(() => this.recipientNotes().slice((this.recipientNotesPage() - 1) * this.notesPageSize, this.recipientNotesPage() * this.notesPageSize));
+  readonly recipientNotesTotalPages = computed(() => Math.max(1, Math.ceil(this.recipientNotes().length / this.notesPageSize)));
   readonly leaveRequests = signal<LeaveRequest[]>([]);
+  readonly leaveRequestsPage = signal(1);
+  readonly leaveRequestsPageSize = signal(10);
+  readonly leaveRequestStatusFilter = signal<'all' | LeaveRequest['status']>('all');
+  readonly leaveFormOpen = signal(false);
+  readonly filteredLeaveRequests = computed(() => this.leaveRequests()
+    .filter(request => this.leaveRequestStatusFilter() === 'all' || request.status === this.leaveRequestStatusFilter())
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at) || Date.parse(b.created_at) - Date.parse(a.created_at)));
+  readonly paginatedLeaveRequests = computed(() => this.filteredLeaveRequests().slice(
+    (this.leaveRequestsPage() - 1) * this.leaveRequestsPageSize(),
+    this.leaveRequestsPage() * this.leaveRequestsPageSize()
+  ));
+  readonly leaveRequestsTotalPages = computed(() => Math.max(1, Math.ceil(this.filteredLeaveRequests().length / this.leaveRequestsPageSize())));
   readonly enquiries = signal<AdmissionEnquiry[]>([]);
+  readonly enquiriesPage = signal(1);
+  readonly paginatedEnquiries = computed(() => this.filteredEnquiries().slice((this.enquiriesPage() - 1) * this.notesPageSize, this.enquiriesPage() * this.notesPageSize));
+  readonly enquiriesTotalPages = computed(() => Math.max(1, Math.ceil(this.filteredEnquiries().length / this.notesPageSize)));
+  readonly selectedEnquiryId = signal<string | null>(null);
+  readonly selectedLeaveRequestId = signal<string | null>(null);
+  readonly selectedSchoolNoteId = signal<string | null>(null);
+  readonly enquiryPeriod = signal<EnquiryPeriod>('day');
+  readonly enquiryYear = signal(new Date().getFullYear());
+  readonly enquiryYears = computed(() => {
+    const years = new Set([new Date().getFullYear()]);
+    for (const enquiry of this.enquiries()) {
+      const year = new Date(enquiry.created_at).getFullYear();
+      if (Number.isFinite(year)) years.add(year);
+    }
+    return [...years].sort((a, b) => b - a);
+  });
+  readonly filteredEnquiries = computed(() => {
+    const year = this.enquiryYear();
+    const today = new Date();
+    const month = today.getMonth();
+    const day = Math.min(today.getDate(), new Date(year, month + 1, 0).getDate());
+    const anchor = new Date(year, month, day);
+    let start: Date;
+    let end: Date;
+
+    switch (this.enquiryPeriod()) {
+      case 'day':
+        start = new Date(year, month, day);
+        end = new Date(year, month, day, 23, 59, 59, 999);
+        break;
+      case 'week': {
+        const mondayOffset = (anchor.getDay() + 6) % 7;
+        start = new Date(year, month, day - mondayOffset);
+        end = new Date(year, month, day - mondayOffset + 7, 0, 0, 0, -1);
+        break;
+      }
+      case 'month':
+        start = new Date(year, month, 1);
+        end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+        break;
+      case 'year':
+        start = new Date(year, 0, 1);
+        end = new Date(year, 11, 31, 23, 59, 59, 999);
+        break;
+    }
+
+    return this.enquiries().filter(enquiry => {
+      const receivedAt = new Date(enquiry.created_at);
+      return receivedAt.getFullYear() === year && receivedAt >= start && receivedAt <= end;
+    });
+  });
+  readonly enquiryStatusCounts = computed(() => {
+    const counts: Record<AdmissionEnquiry['status'], number> = { new: 0, contacted: 0, closed: 0 };
+    for (const enquiry of this.filteredEnquiries()) counts[enquiry.status] += 1;
+    return counts;
+  });
   readonly parentFeeSummary = signal<ParentFeeSummary | null>(null);
   readonly parentFeeLoading = signal(false);
   readonly parentFeeAcademicYear = signal('all');
@@ -174,6 +257,7 @@ export class Dashboard implements OnInit {
   feeVisibilitySearch = '';
   readonly parentAccessParentId = signal('');
   readonly parentAccessStudentIds = signal<string[]>([]);
+  readonly familyLinkStudents = signal<StudentRecord[]>([]);
   readonly noteClassFilter = signal('');
   noteForm = this.emptyNoteForm();
   readonly students = signal<StudentRecord[]>([]);
@@ -258,6 +342,7 @@ export class Dashboard implements OnInit {
   holidayForm = { holiday_date: '', name: '' };
   leaveForm = { start_date: new Date().toISOString().slice(0, 10), end_date: new Date().toISOString().slice(0, 10), reason: '' };
   leaveRemarks: Record<string, string> = {};
+  cancelLeaveRemarks: Record<string, string> = {};
   sectionForm = { name: '', display_order: 0 };
   tuitionSearch = '';
   tuitionClassFilter = '';
@@ -297,6 +382,23 @@ export class Dashboard implements OnInit {
   ];
 
   ngOnInit(): void {
+    this.notificationService.leaveArrivals$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(notification => void this.refreshVisibleLeaveRequests(notification.leave_request_id));
+    this.notificationService.arrivals$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(notification => void this.refreshVisibleEnquiries(notification));
+    this.notificationService.schoolNoteArrivals$
+    .pipe(takeUntilDestroyed(this.destroyRef))
+    .subscribe(notification => void this.refreshVisibleSchoolNotes(notification));
+    this.notificationService.deletedLeaveRequests$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (this.canReviewLeaveRequests() && this.activeView() === 'leave-requests') void this.loadLeaveRequests();
+        else if (this.isStudent()) void this.loadMyLeaveRequests();
+        else if (this.isParent()) void this.loadParentLeaveRequests();
+        void this.loadUnreadCounts();
+      });
     if (typeof window === 'undefined') {
       return;
     }
@@ -305,6 +407,10 @@ export class Dashboard implements OnInit {
       this.token.set(savedToken);
       void this.loadWorkspace();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.notificationService.stop();
   }
 
   async login(): Promise<void> {
@@ -326,6 +432,7 @@ export class Dashboard implements OnInit {
   }
 
   logout(): void {
+    this.notificationService.stop();
     this.token.set(null);
     this.user.set(null);
     if (typeof window !== 'undefined') {
@@ -373,6 +480,20 @@ export class Dashboard implements OnInit {
         await Promise.all([this.loadPageContents(), this.loadSiteContent(), this.loadUsers(), this.loadClasses(), this.loadAttendanceStudents(), this.loadDailyAttendance(), this.loadStudents(), this.loadHolidays()]);
       }
       await this.loadUnreadCounts();
+      const accessToken = this.token();
+      if (this.canReceiveRealtimeNotifications() && accessToken) {
+        try {
+          await this.notificationService.start(
+            accessToken,
+            this.canReceiveAdmissionNotifications(),
+            this.canReceiveSchoolNoteNotifications()
+          );
+        } catch (error) {
+          this.error.set(this.errorMessage(error, 'Unable to load admission notifications.'));
+        }
+      } else {
+        this.notificationService.stop();
+      }
     } catch (error) {
       this.error.set(this.errorMessage(error, 'The dashboard could not load its data.'));
       if (error instanceof HttpErrorResponse && error.status === 401) {
@@ -409,6 +530,8 @@ export class Dashboard implements OnInit {
     } else if (view === 'school-notes') {
       if (this.isParent()) await this.loadParentNotes();
       else await Promise.all([this.loadRecipientNotes(), this.loadMyLeaveRequests()]);
+    } else if (view === 'apply-leave') {
+      await this.loadMyLeaveRequests();
     } else if (view === 'leave-requests') {
       await this.loadLeaveRequests();
     } else if (view === 'enquiries') {
@@ -430,7 +553,7 @@ export class Dashboard implements OnInit {
       await Promise.all([this.loadUsers(1, 100), this.loadClasses()]);
     } else if (view === 'family-links') {
       this.staffRole = 'parent';
-      await Promise.all([this.loadUsers(1, 100), this.loadFamilyStudents()]);
+      await this.loadUsers(1, 100);
     } else if (view === 'fee-visibility') {
       await this.loadFamilyStudents();
     } else if (view === 'notes') {
@@ -730,6 +853,33 @@ export class Dashboard implements OnInit {
     void this.loadTuitionReport();
   }
 
+  changeNotesPage(page: number): void {
+    if (page >= 1 && page <= this.notesTotalPages()) this.notesPage.set(page);
+  }
+
+  changeRecipientNotesPage(page: number): void {
+    if (page >= 1 && page <= this.recipientNotesTotalPages()) this.recipientNotesPage.set(page);
+  }
+
+  changeEnquiriesPage(page: number): void {
+    if (page >= 1 && page <= this.enquiriesTotalPages()) this.enquiriesPage.set(page);
+  }
+
+  changeLeaveRequestsPage(page: number): void {
+    if (page >= 1 && page <= this.leaveRequestsTotalPages()) this.leaveRequestsPage.set(page);
+  }
+
+  changeLeaveRequestPageSize(pageSize: number): void {
+    if (![10, 25, 50, 100].includes(pageSize)) return;
+    this.leaveRequestsPageSize.set(pageSize);
+    this.leaveRequestsPage.set(1);
+  }
+
+  changeLeaveRequestStatus(status: 'all' | LeaveRequest['status']): void {
+    this.leaveRequestStatusFilter.set(status);
+    this.leaveRequestsPage.set(1);
+  }
+
   searchTuitionReport(): void {
     this.tuitionPage.set(1);
     void this.loadTuitionReport();
@@ -792,7 +942,7 @@ export class Dashboard implements OnInit {
       overview: 'Good morning, editor.', pages: 'Page content', contact: 'Contact details', gallery: 'Gallery upload', staff: 'Staff accounts', parents: 'Parent accounts',
       students: 'Students', classes: 'Classes', 'class-access': 'Class access', 'family-links': 'Family access', notes: 'School notes', holidays: 'School holidays',
       'fee-visibility': 'Parent fee visibility',
-      'school-notes': 'School notes', 'leave-requests': 'Leave requests', enquiries: 'Admission enquiries',
+      'school-notes': 'School notes', 'apply-leave': 'Apply for leave', 'leave-requests': 'Leave requests', enquiries: 'Admission enquiries',
       attendance: 'Attendance', 'punch-attendance': 'Punch In/OUT', tuition: 'Tuition fees', profile: 'My profile', permissions: 'Access control', 'my-dashboard': 'My Dashboard'
     };
     return titles[this.activeView()];
@@ -817,6 +967,7 @@ export class Dashboard implements OnInit {
     } catch { this.myPunches.set([]); }
     await this.loadHolidays();
     await this.loadMyDiary();
+    await this.loadMyLeaveRequests();
   }
 
   async loadMyDiary(): Promise<void> {
@@ -839,7 +990,7 @@ export class Dashboard implements OnInit {
         this.selectedNoteChildId.set(children.length === 1 ? children[0].id : '');
       }
       if (!children.length) this.parentFeeSummary.set(null);
-      await Promise.all([this.loadRecipientNotes(), this.loadParentFeeSummary()]);
+      await Promise.all([this.loadRecipientNotes(), this.loadParentFeeSummary(), this.loadParentLeaveRequests()]);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to load linked children.'));
       this.noteChildren.set([]);
@@ -850,6 +1001,7 @@ export class Dashboard implements OnInit {
   async loadRecipientNotes(): Promise<void> {
     if (this.isParent() && !this.selectedNoteChildId() && this.noteChildren().length !== 1) {
       this.recipientNotes.set([]);
+      this.recipientNotesPage.set(1);
       return;
     }
     try {
@@ -860,6 +1012,7 @@ export class Dashboard implements OnInit {
         params = params.set('student_id', childId);
       }
       this.recipientNotes.set(await firstValueFrom(this.http.get<SchoolNote[]>(`${this.apiUrl}/notes/me`, { headers: this.authHeaders(), params })));
+      this.recipientNotesPage.set(1);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to load notes.'));
       this.recipientNotes.set([]);
@@ -897,8 +1050,20 @@ export class Dashboard implements OnInit {
     if (!this.isStudent()) return;
     try {
       this.leaveRequests.set(await firstValueFrom(this.http.get<LeaveRequest[]>(`${this.apiUrl}/leave-requests/me`, { headers: this.authHeaders() })));
+      this.leaveRequestsPage.set(1);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to load your leave requests.'));
+      this.leaveRequests.set([]);
+    }
+  }
+
+  async loadParentLeaveRequests(): Promise<void> {
+    if (!this.isParent()) return;
+    try {
+      this.leaveRequests.set(await firstValueFrom(this.http.get<LeaveRequest[]>(`${this.apiUrl}/leave-requests/me`, { headers: this.authHeaders() })));
+      this.leaveRequestsPage.set(1);
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to load linked leave requests.'));
       this.leaveRequests.set([]);
     }
   }
@@ -911,19 +1076,27 @@ export class Dashboard implements OnInit {
     }
     this.setBusy();
     try {
-      await firstValueFrom(this.http.post<LeaveRequest>(`${this.apiUrl}/leave-requests`, {
+      const created = await firstValueFrom(this.http.post<LeaveRequest>(`${this.apiUrl}/leave-requests`, {
         start_date: this.leaveForm.start_date,
         end_date: this.leaveForm.end_date,
         reason: this.leaveForm.reason.trim()
       }, { headers: this.authHeaders() }));
       this.leaveForm = { start_date: new Date().toISOString().slice(0, 10), end_date: new Date().toISOString().slice(0, 10), reason: '' };
       await this.loadMyLeaveRequests();
+      this.selectedLeaveRequestId.set(created.id);
+      this.leaveFormOpen.set(false);
+      this.focusLeaveRequest(created.id);
       this.notice.set('Your leave application has been submitted.');
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to submit your leave application.'));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  openLeaveRequestForm(): void {
+    this.clearMessages();
+    this.leaveFormOpen.set(true);
   }
 
   tabUnreadCount(view: DashboardView): number {
@@ -947,6 +1120,27 @@ export class Dashboard implements OnInit {
     return !this.isStudent() && !this.isParent() && !this.isTeacher() && this.can('admission_enquiries', 'read');
   }
 
+  canReceiveAdmissionNotifications(): boolean {
+    const role = this.user()?.role;
+    return this.canViewEnquiries() && (role === 'admin' || role === 'clerk' || role === 'super_admin');
+  }
+
+  canReceiveRealtimeNotifications(): boolean {
+    return this.canReceiveAdmissionNotifications()
+      || this.canReceiveLeaveNotifications();
+  }
+
+  canReceiveSchoolNoteNotifications(): boolean {
+    return (this.isStudent() || this.isParent()) && this.can('notes', 'read');
+  }
+
+  canReceiveLeaveNotifications(): boolean {
+    if (this.isStudent() || this.isParent()) return true;
+    const role = this.user()?.role;
+    return ['teacher', 'clerk', 'admin', 'super_admin'].includes(role ?? '')
+      && this.can('leave_requests', 'read');
+  }
+
   canUpdateEnquiries(): boolean { return this.can('admission_enquiries', 'update'); }
 
   enquiryAgeLabel(age: string): string {
@@ -958,19 +1152,120 @@ export class Dashboard implements OnInit {
     if (!this.canViewEnquiries()) return;
     try {
       this.enquiries.set(await firstValueFrom(this.http.get<AdmissionEnquiry[]>(`${this.apiUrl}/admission-enquiries`, { headers: this.authHeaders() })));
+      this.enquiriesPage.set(1);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to load admission enquiries.'));
       this.enquiries.set([]);
       return;
     }
-    if (this.activeView() === 'enquiries') {
-      try {
-        await firstValueFrom(this.http.post(`${this.apiUrl}/notifications/admission-enquiries/read`, null, { headers: this.authHeaders() }));
-        await this.loadUnreadCounts();
-      } catch (error) {
-        this.error.set(this.errorMessage(error, 'Unable to mark admission enquiries as read.'));
+  }
+
+  async openAdmissionNotification(notification: AdmissionEnquiryNotification): Promise<void> {
+    this.enquiryPeriod.set('year');
+    this.enquiryYear.set(new Date(notification.created_at).getFullYear());
+    this.selectedEnquiryId.set(notification.enquiry_id);
+    await this.navigateTo('enquiries');
+    this.focusEnquiry(notification.enquiry_id);
+  }
+
+  async openLeaveRequestNotification(notification: LeaveRequestNotification): Promise<void> {
+    this.selectedLeaveRequestId.set(notification.leave_request_id);
+    if (this.canReviewLeaveRequests()) {
+      await this.navigateTo('leave-requests');
+    } else if (this.isStudent()) {
+      await this.navigateTo('apply-leave');
+    } else {
+      await this.navigateTo('my-dashboard');
+    }
+    this.focusLeaveRequest(notification.leave_request_id);
+  }
+
+  async openSchoolNoteNotification(notification: SchoolNoteNotification): Promise<void> {
+    this.selectedSchoolNoteId.set(notification.note_id);
+    await this.navigateTo('school-notes');
+    if (this.isParent()) {
+      const targetChild = notification.student_id
+        ? this.noteChildren().find(child => child.id === notification.student_id)
+        : this.noteChildren().find(child => child.class_option_id === notification.class_option_id);
+      if (targetChild && this.selectedNoteChildId() !== targetChild.id) {
+        await this.selectParentChild(targetChild.id);
       }
     }
+    this.focusSchoolNote(notification.note_id);
+  }
+
+  private async refreshVisibleLeaveRequests(requestId: string): Promise<void> {
+    const activeView = this.activeView();
+    if (this.canReviewLeaveRequests() && activeView === 'leave-requests') {
+      await this.loadLeaveRequests();
+    } else if (this.isStudent() && activeView === 'apply-leave') {
+      await this.loadMyLeaveRequests();
+    } else if (this.isParent() && activeView === 'my-dashboard') {
+      await this.loadParentLeaveRequests();
+    } else {
+      return;
+    }
+    if (this.leaveRequests().some(request => request.id === requestId)) {
+      this.selectedLeaveRequestId.set(requestId);
+      this.focusLeaveRequest(requestId);
+    }
+  }
+
+  private focusLeaveRequest(requestId: string): void {
+    if (typeof window === 'undefined') return;
+    const requestIndex = this.filteredLeaveRequests().findIndex(request => request.id === requestId);
+    if (requestIndex >= 0) this.leaveRequestsPage.set(Math.floor(requestIndex / this.leaveRequestsPageSize()) + 1);
+    window.setTimeout(() => {
+      document.getElementById(`leave-request-${requestId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  private async refreshVisibleSchoolNotes(notification: SchoolNoteNotification): Promise<void> {
+    if (this.activeView() !== 'school-notes') return;
+    if (this.isParent()) {
+      const selectedChild = this.noteChildren().find(child => child.id === this.selectedNoteChildId());
+      const targetChild = notification.student_id
+        ? this.noteChildren().find(child => child.id === notification.student_id)
+        : this.noteChildren().find(child => child.class_option_id === notification.class_option_id);
+      if (!targetChild) return;
+      if (targetChild.id !== selectedChild?.id) await this.selectParentChild(targetChild.id);
+      else await this.loadRecipientNotes();
+    } else if (this.isStudent()) {
+      await this.loadRecipientNotes();
+    } else {
+      return;
+    }
+    if (this.recipientNotes().some(note => note.id === notification.note_id)) {
+      this.selectedSchoolNoteId.set(notification.note_id);
+      this.focusSchoolNote(notification.note_id);
+    }
+  }
+
+  private focusSchoolNote(noteId: string): void {
+    if (typeof window === 'undefined') return;
+    const noteIndex = this.recipientNotes().findIndex(note => note.id === noteId);
+    if (noteIndex >= 0) this.recipientNotesPage.set(Math.floor(noteIndex / this.notesPageSize) + 1);
+    window.setTimeout(() => {
+      document.getElementById(`school-note-${noteId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  private focusEnquiry(enquiryId: string): void {
+    if (typeof window === 'undefined') return;
+    const enquiryIndex = this.filteredEnquiries().findIndex(enquiry => enquiry.id === enquiryId);
+    if (enquiryIndex >= 0) this.enquiriesPage.set(Math.floor(enquiryIndex / this.notesPageSize) + 1);
+    window.setTimeout(() => {
+      document.getElementById(`enquiry-${enquiryId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  private async refreshVisibleEnquiries(notification: AdmissionEnquiryNotification): Promise<void> {
+    if (!this.canViewEnquiries() || this.activeView() !== 'enquiries') return;
+    this.enquiryPeriod.set('year');
+    this.enquiryYear.set(new Date(notification.created_at).getFullYear());
+    this.selectedEnquiryId.set(notification.enquiry_id);
+    await this.loadEnquiries();
+    if (this.filteredEnquiries().some(enquiry => enquiry.id === notification.enquiry_id)) this.focusEnquiry(notification.enquiry_id);
   }
 
   async setEnquiryStatus(enquiry: AdmissionEnquiry, status: AdmissionEnquiry['status']): Promise<void> {
@@ -993,6 +1288,7 @@ export class Dashboard implements OnInit {
     if (!this.canReviewLeaveRequests()) return;
     try {
       this.leaveRequests.set(await firstValueFrom(this.http.get<LeaveRequest[]>(`${this.apiUrl}/leave-requests`, { headers: this.authHeaders() })));
+      this.leaveRequestsPage.set(1);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to load leave requests.'));
       this.leaveRequests.set([]);
@@ -1002,6 +1298,7 @@ export class Dashboard implements OnInit {
       try {
         await firstValueFrom(this.http.post(`${this.apiUrl}/notifications/leave-requests/read`, null, { headers: this.authHeaders() }));
         await this.loadUnreadCounts();
+        await this.notificationService.refreshLeaveNotifications();
       } catch (error) {
         this.error.set(this.errorMessage(error, 'Unable to mark leave requests as read.'));
       }
@@ -1022,6 +1319,63 @@ export class Dashboard implements OnInit {
       this.notice.set(`Leave request ${status}.`);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Unable to review this leave request.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  canDeleteLeaveRequest(request: LeaveRequest): boolean {
+    if (request.status !== 'pending') return false;
+    if (this.isStudent() || this.isParent()) return true;
+    const role = this.user()?.role ?? '';
+    return ['clerk', 'admin', 'super_admin'].includes(role)
+      && this.can('leave_requests', 'update');
+  }
+
+  canCancelLeaveRequest(request: LeaveRequest): boolean {
+    if (request.status !== 'approved') return false;
+    if (this.isStudent() || this.isParent()) return true;
+    if (this.isTeacher()) return this.canReviewLeaveRequests();
+    return ['clerk', 'admin', 'super_admin'].includes(this.user()?.role ?? '')
+      && this.can('leave_requests', 'update');
+  }
+
+  async deletePendingLeaveRequest(request: LeaveRequest): Promise<void> {
+    if (!this.canDeleteLeaveRequest(request)) return this.denyPermission();
+    if (typeof window !== 'undefined' && !window.confirm('Delete this pending leave request? This cannot be undone.')) return;
+    this.setBusy();
+    try {
+      await firstValueFrom(this.http.delete(`${this.apiUrl}/leave-requests/${request.id}`, { headers: this.authHeaders() }));
+      this.leaveRequests.update(items => items.filter(item => item.id !== request.id));
+      await this.notificationService.refreshLeaveNotifications();
+      await this.loadUnreadCounts();
+      this.notice.set('Pending leave request deleted.');
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to delete this leave request.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async cancelApprovedLeaveRequest(request: LeaveRequest): Promise<void> {
+    if (!this.canCancelLeaveRequest(request)) return this.denyPermission();
+    if (typeof window !== 'undefined' && !window.confirm('Cancel this approved leave request?')) return;
+    this.setBusy();
+    try {
+      const updated = await firstValueFrom(this.http.post<LeaveRequest>(
+        `${this.apiUrl}/leave-requests/${request.id}/cancel`,
+        { remarks: this.cancelLeaveRemarks[request.id]?.trim() || null },
+        { headers: this.authHeaders() }
+      ));
+      this.leaveRequests.update(items => items.map(item => item.id === updated.id ? updated : item));
+      this.cancelLeaveRemarks[request.id] = '';
+      this.selectedLeaveRequestId.set(updated.id);
+      this.focusLeaveRequest(updated.id);
+      await this.notificationService.refreshLeaveNotifications();
+      await this.loadUnreadCounts();
+      this.notice.set('Approved leave request cancelled. A notification was sent to the affected users.');
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Unable to cancel this leave request.'));
     } finally {
       this.loading.set(false);
     }
@@ -1061,6 +1415,7 @@ export class Dashboard implements OnInit {
 
   async loadNotes(): Promise<void> {
     if (!this.can('notes', 'read')) return;
+    this.notesPage.set(1);
     let params = new HttpParams();
     const classId = this.isTeacher() ? this.selectedTeacherClassId() : this.noteClassFilter();
     if (classId) params = params.set('class_option_id', classId);
@@ -1093,22 +1448,25 @@ export class Dashboard implements OnInit {
 
   openNoteForm(): void {
     this.editingNoteId.set(null);
+    this.noteSaveError.set('');
     this.noteForm = this.emptyNoteForm();
     this.noteForm.class_option_id = this.isTeacher() ? this.selectedTeacherClassId() : this.noteClassFilter();
     this.noteFormOpen.set(true);
   }
 
   editNote(note: SchoolNote): void {
+    this.noteSaveError.set('');
     this.editingNoteId.set(note.id);
     this.noteForm = { title: note.title, content: note.content, category: note.category, visibility: note.visibility, class_option_id: note.class_option_id, student_id: note.student_id ?? '', due_date: note.due_date ?? '' };
     this.noteFormOpen.set(true);
   }
 
   async saveNote(): Promise<void> {
+    this.noteSaveError.set('');
     const editingId = this.editingNoteId();
     if (!this.can('notes', editingId ? 'update' : 'create')) return this.denyPermission();
     if (!this.noteForm.class_option_id || !this.noteForm.title.trim() || !this.noteForm.content.trim() || (this.noteForm.visibility === 'individual' && !this.noteForm.student_id)) {
-      this.error.set('Complete the title, content, class, and individual recipient fields.');
+      this.noteSaveError.set('Complete the title, content, class, and individual recipient fields.');
       return;
     }
     this.setBusy();
@@ -1117,10 +1475,14 @@ export class Dashboard implements OnInit {
       if (editingId) await firstValueFrom(this.http.put(`${this.apiUrl}/notes/${editingId}`, payload, { headers: this.authHeaders() }));
       else await firstValueFrom(this.http.post(`${this.apiUrl}/notes`, payload, { headers: this.authHeaders() }));
       this.noteFormOpen.set(false);
+      this.noteSaveError.set('');
       this.notice.set(editingId ? 'Note updated.' : 'Note published.');
       await this.loadNotes();
     } catch (error) {
-      this.error.set(this.errorMessage(error, 'Unable to save the note.'));
+      const message = this.errorMessage(error, 'Unable to save the note.');
+      this.noteSaveError.set(error instanceof HttpErrorResponse && error.status >= 500
+        ? `${message} (HTTP ${error.status})`
+        : message);
     } finally { this.loading.set(false); }
   }
 
@@ -1152,11 +1514,21 @@ export class Dashboard implements OnInit {
 
   async loadParentAccess(parentId: string): Promise<void> {
     this.parentAccessParentId.set(parentId);
-    if (!parentId) { this.parentAccessStudentIds.set([]); return; }
+    this.parentAccessStudentIds.set([]);
+    this.familyLinkStudents.set([]);
+    if (!parentId) return;
     try {
-      const response = await firstValueFrom(this.http.get<{ student_ids: string[] }>(`${this.apiUrl}/admin/parent-access/${parentId}`, { headers: this.authHeaders() }));
+      const [response, students] = await Promise.all([
+        firstValueFrom(this.http.get<{ student_ids: string[] }>(`${this.apiUrl}/admin/parent-access/${parentId}`, { headers: this.authHeaders() })),
+        firstValueFrom(this.http.get<StudentRecord[]>(`${this.apiUrl}/admin/parent-access/${parentId}/available-students`, { headers: this.authHeaders() })),
+      ]);
+      if (this.parentAccessParentId() !== parentId) return;
       this.parentAccessStudentIds.set(response.student_ids);
-    } catch (error) { this.error.set(this.errorMessage(error, 'Unable to load linked students.')); }
+      this.familyLinkStudents.set(students);
+    } catch (error) {
+      if (this.parentAccessParentId() !== parentId) return;
+      this.error.set(this.errorMessage(error, 'Unable to load available students.'));
+    }
   }
 
   canManageFeeVisibility(): boolean {
@@ -1214,6 +1586,7 @@ export class Dashboard implements OnInit {
     try {
       await firstValueFrom(this.http.put(`${this.apiUrl}/admin/parent-access/${parentId}`, { student_ids: this.parentAccessStudentIds() }, { headers: this.authHeaders() }));
       this.notice.set('Parent-child access updated.');
+      await this.loadParentAccess(parentId);
     } catch (error) { this.error.set(this.errorMessage(error, 'Unable to update parent-child access.')); }
     finally { this.loading.set(false); }
   }
@@ -1828,6 +2201,7 @@ export class Dashboard implements OnInit {
   canView(view: DashboardView): boolean {
     if (view === 'overview' || view === 'profile' || view === 'my-dashboard') return true;
     if (view === 'school-notes') return (this.isStudent() || this.isParent()) && this.can('notes', 'read');
+    if (view === 'apply-leave') return this.isStudent();
     if (view === 'leave-requests' && !this.canReviewLeaveRequests()) return false;
     if (this.isTeacher() && !this.teacherClassEntered() && view !== 'class-access') return false;
     if (view === 'permissions') return this.isSuperAdmin();

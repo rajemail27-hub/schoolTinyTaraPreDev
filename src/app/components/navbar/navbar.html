@@ -20,6 +20,8 @@
       type="button"
       (click)="toggleMenu()"
       aria-label="Toggle navigation"
+      [attr.aria-expanded]="mobileMenuOpen"
+      aria-controls="primary-navigation"
     >
       {{ mobileMenuOpen ? '✕' : '☰' }}
     </button>
@@ -28,6 +30,7 @@
     <ul
       class="nav-links"
       [class.show]="mobileMenuOpen"
+      id="primary-navigation"
     >
 
       <li>

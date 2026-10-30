@@ -1,0 +1,84 @@
+@if (state$ | async; as state) {
+  <div class="notification-center">
+    <button class="notification-bell" type="button" aria-label="Notifications" [attr.aria-expanded]="open()" (click)="open.update(value => !value)">
+      <span aria-hidden="true">🔔</span>
+      @if (state.unreadCount > 0) { <span class="notification-count">{{ state.unreadCount > 99 ? '99+' : state.unreadCount }}</span> }
+    </button>
+    @if (open()) {
+      <section class="notification-popover" aria-label="Notifications">
+        <header class="notification-popover-header">
+          <div><strong>Notifications</strong><small>{{ state.unreadCount }} unread</small></div>
+          <button type="button" class="notification-text-button" [disabled]="state.unreadCount === 0" (click)="markAllRead()">Mark all as read</button>
+        </header>
+        <div class="notification-connection" [class.notification-offline]="!state.connected">
+          <span></span>{{ state.connected ? 'Live updates on' : 'Reconnecting to live updates…' }}
+        </div>
+        @if (error() || state.error) { <p class="notification-error" role="alert">{{ error() || state.error }}</p> }
+        <div class="notification-items">
+          @for (entry of visibleNotifications(state); track entry.type + entry.notification.id) {
+            @if (entry.type === 'admission') {
+              <article class="notification-row" [class.notification-unread]="!entry.notification.read_at">
+                <button type="button" class="notification-open" (click)="selectNotification(entry.notification)">
+                  <strong>Admission enquiry · {{ entry.notification.child_name }}</strong>
+                  <span>Enquiry from {{ entry.notification.parent_name }}</span>
+                  <small>{{ entry.notification.created_at | date:'medium' }}</small>
+                </button>
+                @if (!entry.notification.read_at) {
+                  <button type="button" class="notification-mark-read" (click)="markRead(entry.notification, $event)" aria-label="Mark admission notification as read">Mark read</button>
+                }
+              </article>
+            } @else if (entry.type === 'leave') {
+              <article class="notification-row leave-notification-row" [class.notification-unread]="!entry.notification.read_at">
+                <button type="button" class="notification-open" (click)="selectLeaveRequest(entry.notification)">
+                  <strong>Leave request {{ leaveStatusLabel(entry.notification.status) }} · {{ entry.notification.student_name }}</strong>
+                  <span>{{ entry.notification.class_name }} · {{ entry.notification.start_date | date:'mediumDate' }} – {{ entry.notification.end_date | date:'mediumDate' }}</span>
+                  <small>{{ entry.notification.created_at | date:'medium' }}</small>
+                </button>
+                @if (!entry.notification.read_at) {
+                  <button type="button" class="notification-mark-read" (click)="markLeaveRead(entry.notification, $event)" aria-label="Mark leave notification as read">Mark read</button>
+                }
+              </article>
+            } @else {
+              <article class="notification-row school-note-notification-row" [class.notification-unread]="!entry.notification.read_at">
+                <button type="button" class="notification-open" (click)="selectSchoolNote(entry.notification)">
+                  <strong>New school note · {{ entry.notification.title }}</strong>
+                  <span>{{ entry.notification.class_name }} · {{ entry.notification.created_by_name }}</span>
+                  <small>{{ entry.notification.created_at | date:'medium' }}</small>
+                </button>
+                @if (!entry.notification.read_at) {
+                  <button type="button" class="notification-mark-read" (click)="markSchoolNoteRead(entry.notification, $event)" aria-label="Mark school note notification as read">Mark read</button>
+                }
+              </article>
+            }
+          } @empty {
+            <p class="notification-empty">No notifications yet.</p>
+          }
+        </div>
+        @if (!viewAll() && state.total > 5) { <button type="button" class="notification-footer-button" (click)="viewAll.set(true)">View all notifications</button> }
+        @if (viewAll() && state.hasMore) { <button type="button" class="notification-footer-button" (click)="loadMore()">Load more</button> }
+        <label class="notification-sound-setting"><input type="checkbox" [checked]="soundEnabled" (change)="setSoundEnabled($any($event.target).checked)"> Play a sound for new requests</label>
+      </section>
+    }
+    @if (toast(); as latest) {
+      <aside class="notification-toast" role="status">
+        <div><strong>New admission enquiry</strong><span>{{ latest.child_name }} · {{ latest.parent_name }}</span></div>
+        <button type="button" aria-label="Open new enquiry notification" (click)="selectNotification(latest)">View</button>
+        <button type="button" aria-label="Dismiss notification" (click)="toast.set(null)">×</button>
+      </aside>
+    }
+    @if (leaveToast(); as latest) {
+      <aside class="notification-toast leave-request-toast" role="status">
+        <div><strong>{{ latest.status === 'pending' ? 'New leave request' : 'Leave request ' + leaveStatusLabel(latest.status) }}</strong><span>{{ latest.student_name }} · {{ latest.class_name }} · {{ latest.start_date | date:'mediumDate' }}</span></div>
+        <button type="button" aria-label="Open leave request" (click)="selectLeaveRequest(latest)">View</button>
+        <button type="button" aria-label="Dismiss leave request notification" (click)="leaveToast.set(null)">×</button>
+      </aside>
+    }
+    @if (schoolNoteToast(); as latest) {
+      <aside class="notification-toast school-note-toast" role="status">
+        <div><strong>New school note · {{ latest.title }}</strong><span>{{ latest.class_name }} · Posted by {{ latest.created_by_name }}</span></div>
+        <button type="button" aria-label="Open school note notification" (click)="selectSchoolNote(latest)">View</button>
+        <button type="button" aria-label="Dismiss school note notification" (click)="schoolNoteToast.set(null)">×</button>
+      </aside>
+    }
+  </div>
+}
